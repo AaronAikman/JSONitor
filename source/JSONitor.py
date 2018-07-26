@@ -1,17 +1,32 @@
 '''
 
 
-TODO add drag and drop
-TODO add syntax highlighting
-TODO add tabs
-TODO add comparison
-TODO add an About
-TODO logger
-TODO save temp files
-TODO Add close window shortcut
-TODO Use json file for ui colors/settings
-TODO Add goto line
-TODO Asterisk in title if not saved
+TODO
+add drag and drop
+add syntax highlighting
+add tabs
+add comparison
+add an About
+logger
+save temp files/autosave
+Use json file for ui colors/settings
+Add goto line
+Asterisk in title if not saved
+fix layout
+source folding
+bookmarking
+find and replace
+conversion to (xml, csv, yaml)
+Ln: Col: indicator
+Undo stack
+validation
+copy to clipboard
+format/Beautify
+Minimize/compact
+Feedback/email
+Tree view?
+Form view?
+
 
 '''
 
@@ -95,23 +110,32 @@ class MyWindow(QMainWindow):
         # ! Make instance of QSciScintilla class!
         # ----------------------------------------
         self.__editor = QsciScintilla()
-        self.__editor.setText("This\n")         # Line 1
-        self.__editor.append("is\n")            # Line 2
-        self.__editor.append("a\n")             # Line 3
-        self.__editor.append("QScintilla\n")    # Line 4
-        self.__editor.append("test\n")          # Line 5
-        self.__editor.append("program\n")       # Line 6
-        self.__editor.append("to\n")            # Line 7
-        self.__editor.append("illustrate\n")    # Line 8
-        self.__editor.append("some\n")          # Line 9
-        self.__editor.append("basic\n")         # Line 10
-        self.__editor.append("program\n")       # Line 6
-        self.__editor.append("to\n")            # Line 7
-        self.__editor.append("illustrate\n")    # Line 8
-        self.__editor.append("some\n")          # Line 9
-        self.__editor.append("basic\n")         # Line 10
-        self.__editor.append("functions.")      # Line 11
-        self.__editor.setLexer(None)
+        self.__editor.setText('''{
+                                    "glossary": {
+                                        "title": "example glossary",
+                                        "GlossDiv": {
+                                        "title": "S",
+                                        "GlossList": {
+                                            "GlossEntry": {
+                                            "ID": "SGML",
+                                            "SortAs": "SGML",
+                                            "GlossTerm": "Standard Generalized Markup Language",
+                                            "Acronym": "SGML",
+                                            "Abbrev": "ISO 8879:1986",
+                                            "GlossDef": {
+                                                "para": "A meta-markup language, used to create markup languages such as DocBook.",
+                                                "GlossSeeAlso": [
+                                                "GML",
+                                                "XML"
+                                                ]
+                                            },
+                                            "GlossSee": "markup"
+                                            }
+                                        }
+                                        }
+                                    }
+                                    }
+                                    ''')
         self.__editor.setUtf8(True)             # Set encoding to UTF-8
         self.__editor.setFont(self.__myFont)
 
