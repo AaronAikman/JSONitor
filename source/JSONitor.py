@@ -75,7 +75,7 @@ class MyWindow(QMainWindow):
         self.actionSave.triggered.connect(self.saveFile)
         self.actionSave_As.triggered.connect(self.saveAs)
         self.actionNew.triggered.connect(self.newFile)
-        self.actionClose.triggered.connect(self.closeWindow)
+        self.actionClose.triggered.connect(self.closeTab)
         # print(dir(self.filepathLineEdit))
         self.filepathLineEdit.returnPressed.connect(self.lineEditEnter)
         # self.filepathLineEdit.dropEvent.connect(self.lineEditEnter)
@@ -115,94 +115,164 @@ class MyWindow(QMainWindow):
         # -------------------------------- #
         self.__myFont = QFont('DejaVu Sans Mono')
         self.__myFont.setPointSize(8)
+
+        self.tabLayoutList = []
+        self.tabs = QTabWidget()
+        # self.tabs.currentChanged.connect(self.onTabChange)
+        # self.tab1 = QWidget()
+        # self.tab2 = QWidget()
+        # self.tabs.resize(300,200)
+
+        # # Add tabs
+        # self.tabs.addTab(self.tab1,"Tab 1")
+        # self.tabs.addTab(self.tab2,"Tab 2")
+
+        # # Create first tab
+        # self.tab1.layout = QVBoxLayout(self)
+        # self.tabLayoutList.append(self.tab1.layout)
+        # # self.pushButton1 = QPushButton("PyQt5 button")
+        # self.tab1.layout.addWidget(self.__editor)
+        # self.tab1.setLayout(self.tab1.layout)
+
+        # # Create second tab
+        # self.tab2.layout = QVBoxLayout(self)
+        # self.tabLayoutList.append(self.tab2.layout)
+        # # self.tab2.layout.addWidget(self.__editor)
+        # self.tab2.setLayout(self.tab2.layout)
+
+        # Add tabs to widget
+        self.gridLayout.addWidget(self.tabs)
+        # self.setLayout(self.layout)
+
+        # self.gridLayout.addWidget(self.__editor)
+
+        # Deleting Text Edit until I decide if I want it back
+        self.gridLayout.removeWidget(self.textEdit)
+        self.textEdit.deleteLater()
+        self.textEdit = None
+
+        self.gridLayout.removeWidget(self.filepathLineEdit)
+        self.filepathLineEdit.deleteLater()
+        self.filepathLineEdit = None
+
+        # self.next_item_is_table = False
+        self.tabItems = []
+        self.pages = []
+        self.tEditors = []
+        self.lineEdits = []
+        self.files = []
+        self.add_page()
+
+
+    def createLineEdit(self):
+        lineEdit = QLineEdit()
+        lineEdit.setFont(self.__myFont)
+        lineEdit.returnPressed.connect(self.lineEditEnter)
+        self.lineEdits.append(lineEdit)
+        # TODO fix this naming the wrong thing if a tab has been closed
+        tmpFileName = ('{}\\AutoSave\\tmp{}.json'.format(os.getcwd(), (len(self.files) + 1))).replace('\\', '/')
+        self.files.append(tmpFileName)
+        lineEdit.setText(tmpFileName)
+        return lineEdit
+
+    def create_textEditor(self):
+        # list = QListWidget()
+    #     columns = random.randint(2,5)
+    #     for c in range(columns):
+    #         QListWidgetItem( str( random.randint(0,10) ), list )
+
+    #     return list
+
         # ! Make instance of QSciScintilla class!
         # ----------------------------------------
-        self.__editor = QsciScintilla()
-        self.__editor.setText('''{
-    "glossary": {
-        "title": "example glossary",
-        "GlossDiv": {
-        "title": "S",
-        "GlossList": {
-            "GlossEntry": {
-            "ID": "SGML",
-            "SortAs": "SGML",
-            "GlossTerm": "Standard Generalized Markup Language",
-            "Acronym": "SGML",
-            "Abbrev": "ISO 8879:1986",
-            "GlossDef": {
-                "para": "A meta-markup language, used to create markup languages such as DocBook.",
-                "GlossSeeAlso": [
-                "GML",
-                "XML"
-                ]
-            },
-            "GlossSee": "markup"
-            }
-        }
-        }
-    }
-    }
-    ''')
-        self.__editor.setUtf8(True)             # Set encoding to UTF-8
-        self.__editor.setFont(self.__myFont)
+        tEditor = QsciScintilla()
+    #     tEditor.setText('''{
+    # "glossary": {
+    #     "title": "example glossary",
+    #     "GlossDiv": {
+    #     "title": "S",
+    #     "GlossList": {
+    #         "GlossEntry": {
+    #         "ID": "SGML",
+    #         "SortAs": "SGML",
+    #         "GlossTerm": "Standard Generalized Markup Language",
+    #         "Acronym": "SGML",
+    #         "Abbrev": "ISO 8879:1986",
+    #         "GlossDef": {
+    #             "para": "A meta-markup language, used to create markup languages such as DocBook.",
+    #             "GlossSeeAlso": [
+    #             "GML",
+    #             "XML"
+    #             ]
+    #         },
+    #         "GlossSee": "markup"
+    #         }
+    #     }
+    #     }
+    # }
+    # }
+    # ''')
+        tEditor.setUtf8(True)             # Set encoding to UTF-8
+        tEditor.setFont(self.__myFont)
 
         # 1. Text wrapping
         # -----------------
-        self.__editor.setWrapMode(QsciScintilla.WrapWord)
-        self.__editor.setWrapVisualFlags(QsciScintilla.WrapFlagByText)
-        self.__editor.setWrapIndentMode(QsciScintilla.WrapIndentIndented)
+        tEditor.setWrapMode(QsciScintilla.WrapWord)
+        tEditor.setWrapVisualFlags(QsciScintilla.WrapFlagByText)
+        tEditor.setWrapIndentMode(QsciScintilla.WrapIndentIndented)
 
         # 2. End-of-line mode
         # --------------------
-        self.__editor.setEolMode(QsciScintilla.EolWindows)
-        self.__editor.setEolVisibility(False)
+        tEditor.setEolMode(QsciScintilla.EolWindows)
+        tEditor.setEolVisibility(False)
 
         # 3. Indentation
         # ---------------
-        self.__editor.setIndentationsUseTabs(False)
-        self.__editor.setTabWidth(4)
-        self.__editor.setIndentationGuides(True)
-        self.__editor.setTabIndents(True)
-        self.__editor.setAutoIndent(True)
+        tEditor.setIndentationsUseTabs(False)
+        tEditor.setTabWidth(4)
+        tEditor.setIndentationGuides(True)
+        tEditor.setTabIndents(True)
+        tEditor.setAutoIndent(True)
 
         # 4. Caret
         # ---------
-        self.__editor.setCaretForegroundColor(QColor("#ff0000ff"))
-        self.__editor.setCaretLineVisible(True)
-        self.__editor.setCaretLineBackgroundColor(QColor("#1f0000ff"))
-        self.__editor.setCaretWidth(2)
+        tEditor.setCaretForegroundColor(QColor("#ff0000ff"))
+        tEditor.setCaretLineVisible(True)
+        tEditor.setCaretLineBackgroundColor(QColor("#1f0000ff"))
+        tEditor.setCaretWidth(2)
 
         # 5. Margins
         # -----------
         # Margin 0 = Line nr margin
-        self.__editor.setMarginType(0, QsciScintilla.NumberMargin)
-        self.__editor.setMarginWidth(0, "000")
-        self.__editor.setMarginsForegroundColor(QColor("#ff888888"))
+        tEditor.setMarginType(0, QsciScintilla.NumberMargin)
+        tEditor.setMarginWidth(0, "000")
+        tEditor.setMarginsForegroundColor(QColor("#ff888888"))
 
-        # self.__lexer = JSONLexer(self.__editor)
-        self.__lexer = QsciLexerJSON(self.__editor)
+        # self.__lexer = JSONLexer(tEditor)
+        self.__lexer = QsciLexerJSON(tEditor)
         # print(dir(QsciLexerJSON))
         # Set colors
         # self.__lexer.setColor(Qt.gray)
         # self.__lexer.setPaper(Qt.gray)
         self.__lexer.setDefaultFont(self.__myFont)
 
-        # self.__lexer = QsciLexerXML(self.__editor)
-        # self.__lexer = QsciLexerYAML(self.__editor)
+        # self.__lexer = QsciLexerXML(tEditor)
+        # self.__lexer = QsciLexerYAML(tEditor)
 
-        # print(dir(self.__editor))
-        # print(self.__editor)
-        self.__editor.setAutoCompletionSource(QsciScintilla.AcsDocument)
-        self.__editor.setAutoCompletionThreshold(3)
-        self.__editor.setAutoCompletionCaseSensitivity(False)
+        # print(dir(tEditor))
+        # print(tEditor)
+        tEditor.setAutoCompletionSource(QsciScintilla.AcsDocument)
+        tEditor.setAutoCompletionThreshold(3)
+        tEditor.setAutoCompletionCaseSensitivity(False)
 
         # 2. Install the lexer onto your editor
-        self.__editor.setLexer(self.__lexer)
+        tEditor.setLexer(self.__lexer)
 
-        # self.__editor.setFont(self.__myFont)
+        # tEditor.setFont(self.__myFont)
 
-        self.__editor.textChanged.connect(self.asteriskTitle)
+        tEditor.textChanged.connect(self.asteriskTitle)
+        self.tEditors.append(tEditor)
+        return tEditor
 
         # print(dir(self.__editor))
         # Margin 1 = Symbol margin
@@ -224,47 +294,9 @@ class MyWindow(QMainWindow):
         # TABS
                 # Initialize tab screen
 
-        self.tabLayoutList = []
-        self.tabs = QTabWidget()
-        self.tabs.currentChanged.connect(self.onTabChange)
-        self.tab1 = QWidget()
-        self.tab2 = QWidget()
-        self.tabs.resize(300,200)
-
-        # Add tabs
-        self.tabs.addTab(self.tab1,"Tab 1")
-        self.tabs.addTab(self.tab2,"Tab 2")
-
-        # Create first tab
-        self.tab1.layout = QVBoxLayout(self)
-        self.tabLayoutList.append(self.tab1.layout)
-        # self.pushButton1 = QPushButton("PyQt5 button")
-        self.tab1.layout.addWidget(self.__editor)
-        self.tab1.setLayout(self.tab1.layout)
-
-        # Create second tab
-        self.tab2.layout = QVBoxLayout(self)
-        self.tabLayoutList.append(self.tab2.layout)
-        # self.tab2.layout.addWidget(self.__editor)
-        self.tab2.setLayout(self.tab2.layout)
-
-        # Add tabs to widget
-        self.gridLayout.addWidget(self.tabs)
-        # self.setLayout(self.layout)
 
 
 
-
-        # self.gridLayout.addWidget(self.__editor)
-
-        # Deleting Text Edit until I decide if I want it back
-        self.gridLayout.removeWidget(self.textEdit)
-        self.textEdit.deleteLater()
-        self.textEdit = None
-
-        self.next_item_is_table = False
-        self.pages = []
-        self.add_page()
 
 
 
@@ -301,49 +333,56 @@ class MyWindow(QMainWindow):
         if dlg.exec_():
             filenames = dlg.selectedFiles()
             self.currentFile = filenames[0]
-            self.filepathLineEdit.setText(self.currentFile)
+            # self.filepathLineEdit.setText(self.currentFile)
             self.openFile()
 
 
     def openFile(self):
-        with open(self.currentFile, 'r', encoding='utf-8-sig') as f:
-            data = f.read()
-            # print(data)
-            self.__editor.setText(data)
+        if self.currentFile in self.files:
+            self.tabs.setCurrentIndex(self.files.index(self.currentFile))
+        else:
+            self.add_page()
+            self.lineEdits[self.tabs.currentIndex()].setText(self.currentFile)
+            with open(self.currentFile, 'r', encoding='utf-8-sig') as f:
+                data = f.read()
+                # print(data)
+                self.tEditors[self.tabs.currentIndex()].setText(data)
+                self.files[self.tabs.currentIndex()] = self.currentFile
 
-        self.setWindowTitle('{} {}'.format(self.title, self.currentFile))
+            self.setWindowTitle('{} {}'.format(self.title, self.currentFile))
 
 
     def saveFile(self, doDialog = 0):
         filename = self.currentFile
-        fpText = self.filepathLineEdit.text()
+        fpText = self.lineEdits[self.tabs.currentIndex()].text()
         if doDialog:
             filename = QFileDialog.getSaveFileName(self, 'Save File')[0]
             self.currentFile = filename
-            self.filepathLineEdit.setText(self.currentFile)
+            self.lineEdits[self.tabs.currentIndex()].setText(self.currentFile)
         elif filename != fpText:
             if os.path.isfile(fpText):
                 if self.quickPrompt('Save?', 'Do you want to OVERWRITE to the new filepath instead of the original?'):
                     filename = fpText
                     self.currentFile = filename
                 else:
-                    self.filepathLineEdit.setText(self.currentFile)
+                    self.lineEdits[self.tabs.currentIndex()].setText(self.currentFile)
             else:
                 if self.quickPrompt('Save?', 'Do you want to save to the new filepath instead of the original?'):
                     filename = fpText
                     self.currentFile = filename
                 else:
-                    self.filepathLineEdit.setText(self.currentFile)
+                    self.lineEdits[self.tabs.currentIndex()].setText(self.currentFile)
 
         if filename:
             # newText = str(self.textEdit.toPlainText())
-            newText = str(self.__editor.text())
+            newText = str(self.tEditors[self.tabs.currentIndex()].text())
             if not os.path.exists(os.path.dirname(filename)):
                 os.makedirs(os.path.dirname(filename))
                 # TODO add try in case can't make dir
             with open(filename, 'w') as f:
                 f.write(newText)
             self.setWindowTitle('{} {}'.format(self.title, self.currentFile))
+            self.files[self.tabs.currentIndex()] = self.currentFile
         else:
             self.saveAs()
 
@@ -357,6 +396,10 @@ class MyWindow(QMainWindow):
 
     def closeWindow(self):
         sys.exit()
+
+    def closeTab(self):
+        self.tabs.removeTab(self.tabs.currentIndex())
+        # TODO also remove index
 
     def asteriskTitle(self):
         if self.currentFile:
@@ -380,21 +423,21 @@ class MyWindow(QMainWindow):
         page.setLayout(vbox)
         return page
 
-    def create_table(self):
-        rows, columns = random.randint(2,5), random.randint(1,5)
-        table = QTableWidget( rows, columns )
-        for r in range(rows):
-            for c in range(columns):
-                table.setItem( r, c, QTableWidgetItem( str( random.randint(0,10) ) ) )
-        return table
+    # def create_table(self):
+    #     rows, columns = random.randint(2,5), random.randint(1,5)
+    #     table = QTableWidget( rows, columns )
+    #     for r in range(rows):
+    #         for c in range(columns):
+    #             table.setItem( r, c, QTableWidgetItem( str( random.randint(0,10) ) ) )
+    #     return table
 
-    def create_list(self):
-        list = QListWidget()
-        columns = random.randint(2,5)
-        for c in range(columns):
-            QListWidgetItem( str( random.randint(0,10) ), list )
+    # def create_list(self):
+    #     list = QListWidget()
+    #     columns = random.randint(2,5)
+    #     for c in range(columns):
+    #         QListWidgetItem( str( random.randint(0,10) ), list )
 
-        return list
+    #     return list
 
     def create_new_page_button(self):
         btn = QPushButton('Create a new page!')
@@ -402,22 +445,35 @@ class MyWindow(QMainWindow):
         return btn
 
     def add_page(self):
-        if self.next_item_is_table:
-            self.pages.append( self.create_page( self.create_table(), self.create_new_page_button() ) )
-            self.next_item_is_table = False
-        else:
-            self.pages.append( self.create_page( self.create_list(), self.create_new_page_button() ) )
-            self.next_item_is_table = True
-
-        self.tabs.addTab( self.pages[-1] , 'Page %s' % len(self.pages) )
+        self.pages.append( self.create_page( self.createLineEdit(), self.create_textEditor()) )
+        # if self.next_item_is_table:
+            # self.pages.append( self.create_page( self.create_table(), self.create_new_page_button() ) )
+            # self.next_item_is_table = False
+        # else:
+        #     self.pages.append( self.create_page( self.create_list(), self.create_new_page_button() ) )
+        #     self.next_item_is_table = True
+        # print(os.path.split(self.currentFile)[-1])
+        # inputFilepath = self.currentFile
+        tabName = os.path.splitext(os.path.basename(self.lineEdits[-1].text()))[0]
+        # TODO add to open and save tabs as well
+        # filename_w_ext = os.path.basename(inputFilepath)
+        # filename, file_extension = os.path.splitext(filename_w_ext)
+        # print(filename)
+        self.tabs.addTab( self.pages[-1] , tabName )
         self.tabs.setCurrentIndex( len(self.pages)-1 )
+        # print(dir(self.pages[0]))
+        # self.pages[-1].setTabText(os.path.dirname(self.currentFile))
+        # print(dir(self.tabs.currentWidget()))
+        # self.tabs.currentWidget().setWindowTitle('hi')
 
 
     def onTabCycle(self):
         self.tabs.setCurrentIndex(self.tabs.currentIndex()+1)
 
     def lineEditEnter(self):
-        filepathText = self.filepathLineEdit.text()
+        # TODO make sure you can't lose your changes to current file
+        # TODO maybe add a separate button for open
+        filepathText = self.lineEdits[self.tabs.currentIndex()].text()
         if filepathText:
             if os.path.isfile(filepathText):
                 self.currentFile = filepathText
@@ -434,11 +490,12 @@ class MyWindow(QMainWindow):
 
 
     def newFile(self):
-        if self.quickPrompt('Save?', 'Do you want to save before proceeding?'):
-            self.saveFile()
-        self.textEdit.clear()
-        self.filepathLineEdit.clear()
-        self.currentFile = None
+        # if self.quickPrompt('Save?', 'Do you want to save before proceeding?'):
+        #     self.saveFile()
+        # self.textEdit.clear()
+        # self.filepathLineEdit.clear()
+        # self.currentFile = None
+        self.add_page()
 
 
 
