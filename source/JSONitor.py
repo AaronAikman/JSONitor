@@ -54,6 +54,7 @@ from PyQt5.QtGui import *
 from PyQt5.Qsci import *
 
 # import syntax
+import random
 
 class MyWindow(QMainWindow):
     def __init__(self):
@@ -79,6 +80,7 @@ class MyWindow(QMainWindow):
         self.filepathLineEdit.returnPressed.connect(self.lineEditEnter)
         # self.filepathLineEdit.dropEvent.connect(self.lineEditEnter)
         self.textEdit.textChanged.connect(self.asteriskTitle)
+        # self.tabLayoutList = list(range(10))
         self.initUI()
         self.show()
 
@@ -218,12 +220,51 @@ class MyWindow(QMainWindow):
 
         # self.__editor.setMarginMarkerMask(1, 0b1111)
         # print(dir(self.gridLayout))
-        self.gridLayout.addWidget(self.__editor)
+
+        # TABS
+                # Initialize tab screen
+
+        self.tabLayoutList = []
+        self.tabs = QTabWidget()
+        self.tabs.currentChanged.connect(self.onTabChange)
+        self.tab1 = QWidget()
+        self.tab2 = QWidget()
+        self.tabs.resize(300,200)
+
+        # Add tabs
+        self.tabs.addTab(self.tab1,"Tab 1")
+        self.tabs.addTab(self.tab2,"Tab 2")
+
+        # Create first tab
+        self.tab1.layout = QVBoxLayout(self)
+        self.tabLayoutList.append(self.tab1.layout)
+        # self.pushButton1 = QPushButton("PyQt5 button")
+        self.tab1.layout.addWidget(self.__editor)
+        self.tab1.setLayout(self.tab1.layout)
+
+        # Create second tab
+        self.tab2.layout = QVBoxLayout(self)
+        self.tabLayoutList.append(self.tab2.layout)
+        # self.tab2.layout.addWidget(self.__editor)
+        self.tab2.setLayout(self.tab2.layout)
+
+        # Add tabs to widget
+        self.gridLayout.addWidget(self.tabs)
+        # self.setLayout(self.layout)
+
+
+
+
+        # self.gridLayout.addWidget(self.__editor)
 
         # Deleting Text Edit until I decide if I want it back
         self.gridLayout.removeWidget(self.textEdit)
         self.textEdit.deleteLater()
         self.textEdit = None
+
+        self.next_item_is_table = False
+        self.pages = []
+        self.add_page()
 
 
 
@@ -294,11 +335,12 @@ class MyWindow(QMainWindow):
                 else:
                     self.filepathLineEdit.setText(self.currentFile)
 
-
-
         if filename:
             # newText = str(self.textEdit.toPlainText())
             newText = str(self.__editor.text())
+            if not os.path.exists(os.path.dirname(filename)):
+                os.makedirs(os.path.dirname(filename))
+                # TODO add try in case can't make dir
             with open(filename, 'w') as f:
                 f.write(newText)
             self.setWindowTitle('{} {}'.format(self.title, self.currentFile))
@@ -320,12 +362,75 @@ class MyWindow(QMainWindow):
         if self.currentFile:
             self.setWindowTitle('JSONitor - JSON Editor {}*'.format(self.currentFile))
 
+    def onTabChange(self):
+        # print(dir(self.tabs))
+        # print(self.tabs.currentIndex())
+        # print(self.tabLayoutList)
+        # ind = self.tabs.currentIndex()
+        # self.tabLayoutList[ind].addWidget(self.__editor)
+        # print(self.tabs.currentWidget().layout.addWidget(self.__editor))
+        pass
+
+    def create_page(self, *contents):
+        page = QWidget()
+        vbox = QVBoxLayout()
+        for c in contents:
+            vbox.addWidget(c)
+
+        page.setLayout(vbox)
+        return page
+
+    def create_table(self):
+        rows, columns = random.randint(2,5), random.randint(1,5)
+        table = QTableWidget( rows, columns )
+        for r in range(rows):
+            for c in range(columns):
+                table.setItem( r, c, QTableWidgetItem( str( random.randint(0,10) ) ) )
+        return table
+
+    def create_list(self):
+        list = QListWidget()
+        columns = random.randint(2,5)
+        for c in range(columns):
+            QListWidgetItem( str( random.randint(0,10) ), list )
+
+        return list
+
+    def create_new_page_button(self):
+        btn = QPushButton('Create a new page!')
+        btn.clicked.connect(self.add_page)
+        return btn
+
+    def add_page(self):
+        if self.next_item_is_table:
+            self.pages.append( self.create_page( self.create_table(), self.create_new_page_button() ) )
+            self.next_item_is_table = False
+        else:
+            self.pages.append( self.create_page( self.create_list(), self.create_new_page_button() ) )
+            self.next_item_is_table = True
+
+        self.tabs.addTab( self.pages[-1] , 'Page %s' % len(self.pages) )
+        self.tabs.setCurrentIndex( len(self.pages)-1 )
+
+
+    def onTabCycle(self):
+        self.tabs.setCurrentIndex(self.tabs.currentIndex()+1)
 
     def lineEditEnter(self):
         filepathText = self.filepathLineEdit.text()
-        if filepathText and os.path.isfile(filepathText):
+        if filepathText:
+            if os.path.isfile(filepathText):
                 self.currentFile = filepathText
                 self.openFile()
+            else:
+                self.saveFile()
+
+    # if os.path.exists(filePath):
+    #     #the file is there
+    # elif os.access(os.path.dirname(filePath), os.W_OK):
+    #     #the file does not exists but write privileges are given
+    # else:
+    #     #can not write there
 
 
     def newFile(self):
