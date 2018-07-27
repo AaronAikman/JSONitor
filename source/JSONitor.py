@@ -28,6 +28,7 @@ Tree view?
 Form view?
 
 
+
 '''
 
 
@@ -74,11 +75,16 @@ class MyWindow(QMainWindow):
         self.actionSave_As.triggered.connect(self.saveAs)
         self.actionNew.triggered.connect(self.newFile)
         self.actionClose.triggered.connect(self.closeWindow)
+        # print(dir(self.filepathLineEdit))
+        self.filepathLineEdit.returnPressed.connect(self.lineEditEnter)
+        # self.filepathLineEdit.dropEvent.connect(self.lineEditEnter)
+        self.textEdit.textChanged.connect(self.asteriskTitle)
         self.initUI()
         self.show()
 
     def initUI(self):
-        self.setWindowTitle('JSONitor - JSON Editor')
+        self.title = 'JSONitor - JSON Editor'
+        self.setWindowTitle(self.title)
         backgroundColor = QColor()
         backgroundColor.setNamedColor('#282821')
         self.setAutoFillBackground(True)
@@ -111,31 +117,31 @@ class MyWindow(QMainWindow):
         # ----------------------------------------
         self.__editor = QsciScintilla()
         self.__editor.setText('''{
-                                    "glossary": {
-                                        "title": "example glossary",
-                                        "GlossDiv": {
-                                        "title": "S",
-                                        "GlossList": {
-                                            "GlossEntry": {
-                                            "ID": "SGML",
-                                            "SortAs": "SGML",
-                                            "GlossTerm": "Standard Generalized Markup Language",
-                                            "Acronym": "SGML",
-                                            "Abbrev": "ISO 8879:1986",
-                                            "GlossDef": {
-                                                "para": "A meta-markup language, used to create markup languages such as DocBook.",
-                                                "GlossSeeAlso": [
-                                                "GML",
-                                                "XML"
-                                                ]
-                                            },
-                                            "GlossSee": "markup"
-                                            }
-                                        }
-                                        }
-                                    }
-                                    }
-                                    ''')
+    "glossary": {
+        "title": "example glossary",
+        "GlossDiv": {
+        "title": "S",
+        "GlossList": {
+            "GlossEntry": {
+            "ID": "SGML",
+            "SortAs": "SGML",
+            "GlossTerm": "Standard Generalized Markup Language",
+            "Acronym": "SGML",
+            "Abbrev": "ISO 8879:1986",
+            "GlossDef": {
+                "para": "A meta-markup language, used to create markup languages such as DocBook.",
+                "GlossSeeAlso": [
+                "GML",
+                "XML"
+                ]
+            },
+            "GlossSee": "markup"
+            }
+        }
+        }
+    }
+    }
+    ''')
         self.__editor.setUtf8(True)             # Set encoding to UTF-8
         self.__editor.setFont(self.__myFont)
 
@@ -178,11 +184,13 @@ class MyWindow(QMainWindow):
         # Set colors
         # self.__lexer.setColor(Qt.gray)
         # self.__lexer.setPaper(Qt.gray)
+        self.__lexer.setDefaultFont(self.__myFont)
 
         # self.__lexer = QsciLexerXML(self.__editor)
         # self.__lexer = QsciLexerYAML(self.__editor)
 
         # print(dir(self.__editor))
+        # print(self.__editor)
         self.__editor.setAutoCompletionSource(QsciScintilla.AcsDocument)
         self.__editor.setAutoCompletionThreshold(3)
         self.__editor.setAutoCompletionCaseSensitivity(False)
@@ -190,6 +198,11 @@ class MyWindow(QMainWindow):
         # 2. Install the lexer onto your editor
         self.__editor.setLexer(self.__lexer)
 
+        # self.__editor.setFont(self.__myFont)
+
+        self.__editor.textChanged.connect(self.asteriskTitle)
+
+        # print(dir(self.__editor))
         # Margin 1 = Symbol margin
         # self.__editor.setMarginType(1, QsciScintilla.SymbolMargin)
         # self.__editor.setMarginWidth(1, "00000")
@@ -204,8 +217,16 @@ class MyWindow(QMainWindow):
         # self.__editor.markerDefine(sym_3, 3)
 
         # self.__editor.setMarginMarkerMask(1, 0b1111)
-        # print(dir(self))
+        # print(dir(self.gridLayout))
         self.gridLayout.addWidget(self.__editor)
+
+        # Deleting Text Edit until I decide if I want it back
+        self.gridLayout.removeWidget(self.textEdit)
+        self.textEdit.deleteLater()
+        self.textEdit = None
+
+
+
         # color_palette = self.text_editor.palette()
         # color_palette.setColor(QPalette.Text, Qt.white)
         # color_palette.setColor(QPalette.Base, backgroundColor)
@@ -220,28 +241,36 @@ class MyWindow(QMainWindow):
 
 
     def getFile(self):
+
         dlg = QFileDialog()
         dlg.setFileMode(QFileDialog.AnyFile)
         # dlg.setFilter("JSON files (*.json)")
         filterList = ["JSON files (*.json)",
-                      "XML files (*.xml)",
-                      "YAML files (*.yaml)",
-                      "TXT files (*.txt)",
-                      "All files (*)"
-                      ]
+                    "XML files (*.xml)",
+                    "YAML files (*.yaml)",
+                    "TXT files (*.txt)",
+                    "All files (*)"
+                    ]
         dlg.setNameFilters(filterList)
         # filenames = QStringList()
         # filenames = []
 
+        # if doDialog:
+        #     if dlg.exec_():
         if dlg.exec_():
             filenames = dlg.selectedFiles()
             self.currentFile = filenames[0]
             self.filepathLineEdit.setText(self.currentFile)
+            self.openFile()
 
-            with open(self.currentFile, 'r', encoding='utf-8-sig') as f:
-                data = f.read()
-                # print(data)
-                self.textEdit.setText(data)
+
+    def openFile(self):
+        with open(self.currentFile, 'r', encoding='utf-8-sig') as f:
+            data = f.read()
+            # print(data)
+            self.__editor.setText(data)
+
+        self.setWindowTitle('{} {}'.format(self.title, self.currentFile))
 
 
     def saveFile(self, doDialog = 0):
@@ -268,9 +297,11 @@ class MyWindow(QMainWindow):
 
 
         if filename:
-            newText = str(self.textEdit.toPlainText())
+            # newText = str(self.textEdit.toPlainText())
+            newText = str(self.__editor.text())
             with open(filename, 'w') as f:
                 f.write(newText)
+            self.setWindowTitle('{} {}'.format(self.title, self.currentFile))
         else:
             self.saveAs()
 
@@ -280,13 +311,21 @@ class MyWindow(QMainWindow):
     def quickPrompt(self, title, message):
         reply = QMessageBox.question(self, title,
                         message, QMessageBox.Yes, QMessageBox.No)
-        if reply == QMessageBox.Yes:
-            return True
-        else:
-            return False
+        return reply == QMessageBox.Yes
 
     def closeWindow(self):
         sys.exit()
+
+    def asteriskTitle(self):
+        if self.currentFile:
+            self.setWindowTitle('JSONitor - JSON Editor {}*'.format(self.currentFile))
+
+
+    def lineEditEnter(self):
+        filepathText = self.filepathLineEdit.text()
+        if filepathText and os.path.isfile(filepathText):
+                self.currentFile = filepathText
+                self.openFile()
 
 
     def newFile(self):
