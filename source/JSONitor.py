@@ -3,25 +3,32 @@
 
 TODO
 add drag and drop
+copy/paste
+recently closed files
 add syntax highlighting
 add comparison
 add an About
 logger
 save temp files/autosave
 Use json file for ui colors/settings
-Add goto line
-bookmarking
 find and replace
-conversion to (xml, csv, yaml)
 Undo stack
-validation
 copy to clipboard
+Feedback/email
+select Occurence
+select all Occurences
+
+conversion to (xml, csv, yaml)
+validation
 format/Beautify
 Minimize/compact
-Feedback/email
+use margin clicks for reordering elements
+
 Tree view?
 Form view?
-use margin clicks for reordering elements
+
+NOTE
+Shift Alt Drag to multi select
 
 
 
@@ -49,8 +56,9 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.Qsci import *
 
-# import syntax
-import random
+import Utilities.JSONProcessing
+
+# import functools
 
 ################
 # Logger Setup #
@@ -90,18 +98,34 @@ logger.addHandler(fh)
 # logger.propagate=1
 logger.info('{} Initiated'.format(appTitle))
 
+# Testing
+j = Utilities.JSONProcessing.JSONAsset
+
 
 ######
 # UI #
 ######
 
-class MyWindow(QMainWindow):
+class JSONitorWindow(QMainWindow):
     def __init__(self):
-        super(MyWindow, self).__init__()
-        # temp hard path
-        uic.loadUi(r'F:\Database\Satchel\Works\Scripting\JSONitor\source\JSONitor.ui', self)
+        # super(JSONitorWindow, self).__init__()
+        super().__init__()
+        uiFile = os.path.dirname(os.path.realpath(__file__)) + '\\JSONitor.ui'
+        logger.debug('UI file is: {}'.format(uiFile))
+        uic.loadUi(uiFile, self)
 
         self.currentFile = None
+
+        # Info
+        self.pages = []
+        self.tEditors = []
+        self.lineEdits = []
+        self.files = []
+
+        # History
+        self.recentlyClosedFiles = []
+        self.recentlyAccessedTabs = []
+        self.bookmarks = {}
 
 
         # p = w.palette()
@@ -121,8 +145,133 @@ class MyWindow(QMainWindow):
         self.actionPrevious_Tab.triggered.connect(self.onTabPrev)
         self.actionNext_Tab.triggered.connect(self.onTabNext)
         self.actionQuit.triggered.connect(self.closeWindow)
-        # print(dir(self.filepathLineEdit))
         self.filepathLineEdit.returnPressed.connect(self.lineEditEnter)
+
+        # Go options
+        self.actionGo_to_Line.triggered.connect(self.goToLine)
+
+        self.actionGo_to_Tab_1.triggered.connect(lambda: self.onTabGo(1))
+        self.actionGo_to_Tab_2.triggered.connect(lambda: self.onTabGo(2))
+        self.actionGo_to_Tab_3.triggered.connect(lambda: self.onTabGo(3))
+        self.actionGo_to_Tab_4.triggered.connect(lambda: self.onTabGo(4))
+        self.actionGo_to_Tab_5.triggered.connect(lambda: self.onTabGo(5))
+        self.actionGo_to_Tab_6.triggered.connect(lambda: self.onTabGo(6))
+        self.actionGo_to_Tab_7.triggered.connect(lambda: self.onTabGo(7))
+        self.actionGo_to_Tab_8.triggered.connect(lambda: self.onTabGo(8))
+        self.actionGo_to_Tab_9.triggered.connect(lambda: self.onTabGo(9))
+        self.actionGo_to_Tab_10.triggered.connect(lambda: self.onTabGo(10))
+
+        # Set Bookmarks
+        self.actionSet_Bookmark_1 = QAction('Set Bookmark 1', self)
+        self.actionSet_Bookmark_1.setShortcut('Ctrl+Shift+1')
+        self.menuSet_Bookmark.addAction(self.actionSet_Bookmark_1)
+        self.actionSet_Bookmark_1.triggered.connect(lambda: self.onBookmarkSet(1))
+
+        self.actionSet_Bookmark_2 = QAction('Set Bookmark 2', self)
+        self.actionSet_Bookmark_2.setShortcut('Ctrl+Shift+2')
+        self.menuSet_Bookmark.addAction(self.actionSet_Bookmark_2)
+        self.actionSet_Bookmark_2.triggered.connect(lambda: self.onBookmarkSet(2))
+
+        self.actionSet_Bookmark_3 = QAction('Set Bookmark 3', self)
+        self.actionSet_Bookmark_3.setShortcut('Ctrl+Shift+3')
+        self.menuSet_Bookmark.addAction(self.actionSet_Bookmark_3)
+        self.actionSet_Bookmark_3.triggered.connect(lambda: self.onBookmarkSet(3))
+
+        self.actionSet_Bookmark_4 = QAction('Set Bookmark 4', self)
+        self.actionSet_Bookmark_4.setShortcut('Ctrl+Shift+4')
+        self.menuSet_Bookmark.addAction(self.actionSet_Bookmark_4)
+        self.actionSet_Bookmark_4.triggered.connect(lambda: self.onBookmarkSet(4))
+
+        self.actionSet_Bookmark_5 = QAction('Set Bookmark 5', self)
+        self.actionSet_Bookmark_5.setShortcut('Ctrl+Shift+5')
+        self.menuSet_Bookmark.addAction(self.actionSet_Bookmark_5)
+        self.actionSet_Bookmark_5.triggered.connect(lambda: self.onBookmarkSet(5))
+
+        self.actionSet_Bookmark_6 = QAction('Set Bookmark 6', self)
+        self.actionSet_Bookmark_6.setShortcut('Ctrl+Shift+6')
+        self.menuSet_Bookmark.addAction(self.actionSet_Bookmark_6)
+        self.actionSet_Bookmark_6.triggered.connect(lambda: self.onBookmarkSet(6))
+
+        self.actionSet_Bookmark_7 = QAction('Set Bookmark 7', self)
+        self.actionSet_Bookmark_7.setShortcut('Ctrl+Shift+7')
+        self.menuSet_Bookmark.addAction(self.actionSet_Bookmark_7)
+        self.actionSet_Bookmark_7.triggered.connect(lambda: self.onBookmarkSet(7))
+
+        self.actionSet_Bookmark_8 = QAction('Set Bookmark 8', self)
+        self.actionSet_Bookmark_8.setShortcut('Ctrl+Shift+8')
+        self.menuSet_Bookmark.addAction(self.actionSet_Bookmark_8)
+        self.actionSet_Bookmark_8.triggered.connect(lambda: self.onBookmarkSet(8))
+
+        self.actionSet_Bookmark_9 = QAction('Set Bookmark 9', self)
+        self.actionSet_Bookmark_9.setShortcut('Ctrl+Shift+9')
+        self.menuSet_Bookmark.addAction(self.actionSet_Bookmark_9)
+        self.actionSet_Bookmark_9.triggered.connect(lambda: self.onBookmarkSet(9))
+
+        self.actionSet_Bookmark_10 = QAction('Set Bookmark 10', self)
+        self.actionSet_Bookmark_10.setShortcut('Ctrl+Shift+0')
+        self.menuSet_Bookmark.addAction(self.actionSet_Bookmark_10)
+        self.actionSet_Bookmark_10.triggered.connect(lambda: self.onBookmarkSet(10))
+
+        # Get Bookmarks
+        self.actionGo_Bookmark_1 = QAction('Go to Bookmark 1', self)
+        self.actionGo_Bookmark_1.setShortcut('Alt+1')
+        self.menuGo_Bookmark.addAction(self.actionGo_Bookmark_1)
+        self.actionGo_Bookmark_1.triggered.connect(lambda: self.onBookmarkGo(1))
+
+        self.actionGo_Bookmark_2 = QAction('Go to Bookmark 2', self)
+        self.actionGo_Bookmark_2.setShortcut('Alt+2')
+        self.menuGo_Bookmark.addAction(self.actionGo_Bookmark_2)
+        self.actionGo_Bookmark_2.triggered.connect(lambda: self.onBookmarkGo(2))
+
+        self.actionGo_Bookmark_3 = QAction('Go to Bookmark 3', self)
+        self.actionGo_Bookmark_3.setShortcut('Alt+3')
+        self.menuGo_Bookmark.addAction(self.actionGo_Bookmark_3)
+        self.actionGo_Bookmark_3.triggered.connect(lambda: self.onBookmarkGo(3))
+
+        self.actionGo_Bookmark_4 = QAction('Go to Bookmark 4', self)
+        self.actionGo_Bookmark_4.setShortcut('Alt+4')
+        self.menuGo_Bookmark.addAction(self.actionGo_Bookmark_4)
+        self.actionGo_Bookmark_4.triggered.connect(lambda: self.onBookmarkGo(4))
+
+        self.actionGo_Bookmark_5 = QAction('Go to Bookmark 5', self)
+        self.actionGo_Bookmark_5.setShortcut('Alt+5')
+        self.menuGo_Bookmark.addAction(self.actionGo_Bookmark_5)
+        self.actionGo_Bookmark_5.triggered.connect(lambda: self.onBookmarkGo(5))
+
+        self.actionGo_Bookmark_6 = QAction('Go to Bookmark 6', self)
+        self.actionGo_Bookmark_6.setShortcut('Alt+6')
+        self.menuGo_Bookmark.addAction(self.actionGo_Bookmark_6)
+        self.actionGo_Bookmark_6.triggered.connect(lambda: self.onBookmarkGo(6))
+
+        self.actionGo_Bookmark_7 = QAction('Go to Bookmark 7', self)
+        self.actionGo_Bookmark_7.setShortcut('Alt+7')
+        self.menuGo_Bookmark.addAction(self.actionGo_Bookmark_7)
+        self.actionGo_Bookmark_7.triggered.connect(lambda: self.onBookmarkGo(7))
+
+        self.actionGo_Bookmark_8 = QAction('Go to Bookmark 8', self)
+        self.actionGo_Bookmark_8.setShortcut('Alt+8')
+        self.menuGo_Bookmark.addAction(self.actionGo_Bookmark_8)
+        self.actionGo_Bookmark_8.triggered.connect(lambda: self.onBookmarkGo(8))
+
+        self.actionGo_Bookmark_9 = QAction('Go to Bookmark 9', self)
+        self.actionGo_Bookmark_9.setShortcut('Alt+9')
+        self.menuGo_Bookmark.addAction(self.actionGo_Bookmark_9)
+        self.actionGo_Bookmark_9.triggered.connect(lambda: self.onBookmarkGo(9))
+
+        self.actionGo_Bookmark_10 = QAction('Go to Bookmark 10', self)
+        self.actionGo_Bookmark_10.setShortcut('Alt+0')
+        self.menuGo_Bookmark.addAction(self.actionGo_Bookmark_10)
+        self.actionGo_Bookmark_10.triggered.connect(lambda: self.onBookmarkGo(10))
+
+
+        # menuSet_Bookmark
+
+
+        # self.actionExit = QAction(('E&xit'), self)
+        # self.actionExit.setShortcut(QKeySequence("Ctrl+Q"))
+        # self.addAction(self.actionExit)
+        # self.actionExit.triggered.connect(self.CloseSC)
+
         # self.filepathLineEdit.dropEvent.connect(self.lineEditEnter)
         # self.textEdit.textChanged.connect(self.asteriskTitle)
         # self.tabLayoutList = list(range(10))
@@ -158,8 +307,8 @@ class MyWindow(QMainWindow):
         # -------------------------------- #
         #     QScintilla editor setup      #
         # -------------------------------- #
-        self.__myFont = QFont('DejaVu Sans Mono')
-        self.__myFont.setPointSize(8)
+        self.__monoFont = QFont('DejaVu Sans Mono')
+        self.__monoFont.setPointSize(8)
 
         self.tabLayoutList = []
         self.tabs = QTabWidget()
@@ -173,6 +322,7 @@ class MyWindow(QMainWindow):
         self.textEdit.deleteLater()
         self.textEdit = None
 
+        # Deleting Line Edit until I decide if I want it back
         self.gridLayout.removeWidget(self.filepathLineEdit)
         self.filepathLineEdit.deleteLater()
         self.filepathLineEdit = None
@@ -181,24 +331,22 @@ class MyWindow(QMainWindow):
         self.lineColLabel = QLabel()
         self.lineColLabel.setText('Ln 0, Cl 0')
         self.lineColLabel.setAlignment(Qt.AlignRight)
-        self.statusbar.addWidget(self.lineColLabel)
+        # self.statusbar.addWidget(self.lineColLabel)
+        self.statusbar.addPermanentWidget(self.lineColLabel)
 
 
-        # Info
-        self.pages = []
-        self.tEditors = []
-        self.lineEdits = []
-        self.files = []
 
-        # History
-        self.recentlyClosedFiles = []
-        self.recentlyAccessedTabs = []
+
+
         self.add_page()
 
+    ###################
+    # Widget / Window #
+    ###################
 
     def createLineEdit(self):
         lineEdit = QLineEdit()
-        lineEdit.setFont(self.__myFont)
+        lineEdit.setFont(self.__monoFont)
         lineEdit.returnPressed.connect(self.lineEditEnter)
         self.lineEdits.append(lineEdit)
         # TODO fix this naming the wrong thing if a tab has been closed
@@ -237,10 +385,10 @@ class MyWindow(QMainWindow):
         }
         }
     }
-    }
+}
     ''')
         tEditor.setUtf8(True)             # Set encoding to UTF-8
-        tEditor.setFont(self.__myFont)
+        tEditor.setFont(self.__monoFont)
 
         # 1. Text wrapping
         # -----------------
@@ -277,21 +425,17 @@ class MyWindow(QMainWindow):
 
         # self.__lexer = JSONLexer(tEditor)
         self.__lexer = QsciLexerJSON(tEditor)
-        # print(dir(QsciLexerJSON))
         # Set colors
         # self.__lexer.setColor(Qt.gray)
         # self.__lexer.setPaper(Qt.gray)
-        self.__lexer.setDefaultFont(self.__myFont)
+        self.__lexer.setDefaultFont(self.__monoFont)
         # self.__lexer.setFolding(QsciScintilla.BoxedTreeFoldStyle)
         tEditor.setFolding(True)
-        # print(help(self.__lexer.setProperty))
         # self.__lexer.setFoldCompact(True)
 
         # self.__lexer = QsciLexerXML(tEditor)
         # self.__lexer = QsciLexerYAML(tEditor)
 
-        # print(dir(tEditor))
-        # print(tEditor)
         tEditor.setAutoCompletionSource(QsciScintilla.AcsDocument)
         tEditor.setAutoCompletionThreshold(3)
         tEditor.setAutoCompletionCaseSensitivity(False)
@@ -299,7 +443,7 @@ class MyWindow(QMainWindow):
         # 2. Install the lexer onto your editor
         tEditor.setLexer(self.__lexer)
 
-        # tEditor.setFont(self.__myFont)
+        # tEditor.setFont(self.__monoFont)
 
         tEditor.textChanged.connect(self.asteriskTitle)
         tEditor.cursorPositionChanged.connect(self.updateLineColInfo)
@@ -310,7 +454,6 @@ class MyWindow(QMainWindow):
 
 
         # Multiline Editing
-        # print(help(tEditor.cursorPositionChanged))
         tEditor.SendScintilla(tEditor.SCI_SETADDITIONALSELECTIONTYPING, 1)
         # offset =tEditor.positionFromLineIndex(0, 7) # line-index to offset
         # tEditor.SendScintilla(tEditor.SCI_SETSELECTION, offset, offset)
@@ -327,10 +470,8 @@ class MyWindow(QMainWindow):
 
         self.tEditors.append(tEditor)
 
-        # print(dir(tEditor))
         return tEditor
 
-        # print(dir(self.__editor))
         # Margin 1 = Symbol margin
         # self.__editor.setMarginType(1, QsciScintilla.SymbolMargin)
         # self.__editor.setMarginWidth(1, "00000")
@@ -345,7 +486,6 @@ class MyWindow(QMainWindow):
         # self.__editor.markerDefine(sym_3, 3)
 
         # self.__editor.setMarginMarkerMask(1, 0b1111)
-        # print(dir(self.gridLayout))
 
         # TABS
                 # Initialize tab screen
@@ -368,6 +508,40 @@ class MyWindow(QMainWindow):
         # # self.setCentralWidget(self.text_editor)
         # self.setGeometry(500, 500, 500, 500)
 
+
+    def create_page(self, *contents):
+        page = QWidget()
+        vbox = QVBoxLayout()
+        for c in contents:
+            vbox.addWidget(c)
+
+        page.setLayout(vbox)
+        return page
+
+
+    def create_new_page_button(self):
+        btn = QPushButton('Create a new page!')
+        btn.clicked.connect(self.add_page)
+        return btn
+
+
+    def add_page(self):
+        self.pages.append( self.create_page( self.createLineEdit(), self.create_textEditor()) )
+        tabName = os.path.splitext(os.path.basename(self.lineEdits[-1].text()))[0]
+        self.tabs.addTab( self.pages[-1] , tabName )
+        self.tabs.setCurrentIndex( len(self.pages)-1 )
+
+
+    def closeWindow(self):
+        sys.exit()
+
+
+    #################
+    # File Handling #
+    #################
+
+    def newFile(self):
+        self.add_page()
 
     def getFile(self):
 
@@ -399,46 +573,46 @@ class MyWindow(QMainWindow):
         else:
             logger.debug('File not found in current tabs. Opening new tab.')
             self.add_page()
-            self.lineEdits[self.tabs.currentIndex()].setText(self.currentFile)
+            self.lineEdits[self.tabInd()].setText(self.currentFile)
             with open(self.currentFile, 'r', encoding='utf-8-sig') as f:
                 data = f.read()
-                self.tEditors[self.tabs.currentIndex()].setText(data)
+                self.tEditors[self.tabInd()].setText(data)
 
-            self.files[self.tabs.currentIndex()] = self.currentFile
-            print(self.files)
+            self.files[self.tabInd()] = self.currentFile
+            logger.debug('Open Files: {}'.format(self.files))
 
             self.setWindowTitle('{} - {}'.format(self.title, os.path.basename(self.currentFile)))
-            tabName = os.path.splitext(os.path.basename(self.lineEdits[self.tabs.currentIndex()].text()))[0]
-            self.tabs.setTabText(self.tabs.currentIndex(), tabName)
+            tabName = os.path.splitext(os.path.basename(self.lineEdits[self.tabInd()].text()))[0]
+            self.tabs.setTabText(self.tabInd(), tabName)
 
 
     def saveFile(self, doDialog = 0):
         # TODO fix infinite loop if you cancel save dialog
         # filename = self.currentFile
-        filename = self.files[self.tabs.currentIndex()]
-        fpText = self.lineEdits[self.tabs.currentIndex()].text()
+        filename = self.files[self.tabInd()]
+        fpText = self.lineEdits[self.tabInd()].text()
         if doDialog:
             filename = QFileDialog.getSaveFileName(self, 'Save File')[0]
             if filename:
                 self.currentFile = filename
-                self.lineEdits[self.tabs.currentIndex()].setText(self.currentFile)
+                self.lineEdits[self.tabInd()].setText(self.currentFile)
         elif filename != fpText:
             if os.path.isfile(fpText):
                 if self.quickPrompt('Save?', 'Do you want to OVERWRITE to the new filepath instead of the original?'):
                     filename = fpText
                     self.currentFile = filename
                 else:
-                    self.lineEdits[self.tabs.currentIndex()].setText(self.currentFile)
+                    self.lineEdits[self.tabInd()].setText(self.currentFile)
             else:
                 if self.quickPrompt('Save?', 'Do you want to save to the new filepath instead of the original?'):
                     filename = fpText
                     self.currentFile = filename
                 else:
-                    self.lineEdits[self.tabs.currentIndex()].setText(self.currentFile)
+                    self.lineEdits[self.tabInd()].setText(self.currentFile)
 
         if filename:
             # newText = str(self.textEdit.toPlainText())
-            newText = str(self.tEditors[self.tabs.currentIndex()].text())
+            newText = str(self.tEditors[self.tabInd()].text())
             if not os.path.exists(os.path.dirname(filename)):
                 os.makedirs(os.path.dirname(filename))
                 # TODO add try in case can't make dir
@@ -447,9 +621,9 @@ class MyWindow(QMainWindow):
 
             self.setWindowTitle('{} - {}'.format(self.title, os.path.basename(self.currentFile)))
 
-            self.files[self.tabs.currentIndex()] = self.currentFile
-            tabName = os.path.splitext(os.path.basename(self.lineEdits[self.tabs.currentIndex()].text()))[0]
-            self.tabs.setTabText(self.tabs.currentIndex(), tabName)
+            self.files[self.tabInd()] = self.currentFile
+            tabName = os.path.splitext(os.path.basename(self.lineEdits[self.tabInd()].text()))[0]
+            self.tabs.setTabText(self.tabInd(), tabName)
         else:
             self.saveAs()
 
@@ -458,29 +632,29 @@ class MyWindow(QMainWindow):
         self.saveFile(1)
 
 
-    def quickPrompt(self, title, message):
-        reply = QMessageBox.question(self, title,
-                        message, QMessageBox.Yes, QMessageBox.No)
-        return reply == QMessageBox.Yes
-
-
-    def closeWindow(self):
-        sys.exit()
-
+    #################
+    # Tab Functions #
+    #################
 
     def onTabClose(self):
-        if self.tabs.tabText(self.tabs.currentIndex())[-1] == '*':
+        if self.tabs.tabText(self.tabInd())[-1] == '*':
             if self.quickPrompt('Save?', 'Do you want to save before closing the tab?'):
                 self.saveFile()
 
-        tabIndex = self.tabs.currentIndex()
-        self.recentlyClosedFiles.append(self.files[self.tabs.currentIndex()])
+        tabIndex = self.tabInd()
+        self.recentlyClosedFiles.append(self.files[self.tabInd()])
         self.tabs.removeTab(tabIndex)
 
         del self.pages[tabIndex]
         del self.tEditors[tabIndex]
         del self.lineEdits[tabIndex]
         del self.files[tabIndex]
+
+
+    def onTabGo(self, ind):
+        ind -= 1
+        if len(self.pages) > ind:
+            self.tabs.setCurrentIndex(ind)
 
 
     def onTabReopen(self):
@@ -491,6 +665,7 @@ class MyWindow(QMainWindow):
                     self.currentFile = self.recentlyClosedFiles[-1]
                     del self.recentlyClosedFiles[-1]
                     self.openFile()
+                    self.statusMessage('Reopened {}'.format(self.currentFile))
                     reopening = False
                 else:
                     del self.recentlyClosedFiles[-1]
@@ -498,45 +673,11 @@ class MyWindow(QMainWindow):
                 reopening = False
 
 
-    def asteriskTitle(self):
-        tabName = '{}*'.format(os.path.splitext(os.path.basename(self.lineEdits[self.tabs.currentIndex()].text()))[0])
-        self.tabs.setTabText(self.tabs.currentIndex(), tabName)
-        self.setWindowTitle('{} - {}'.format(self.title, tabName))
-
-
-    def updateLineColInfo(self):
-        cursorLine, cursorCol = self.tEditors[self.tabs.currentIndex()].getCursorPosition()
-        self.lineColLabel.setText('Ln {}, Cl {}'.format(cursorLine + 1, cursorCol + 1))
-
-
     def onTabChange(self):
-        self.setWindowTitle('{} - {}'.format(self.title, self.tabs.tabText(self.tabs.currentIndex())))
-        self.recentlyAccessedTabs.append(self.tabs.currentIndex())
+        self.setWindowTitle('{} - {}'.format(self.title, self.tabs.tabText(self.tabInd())))
+        self.recentlyAccessedTabs.append(self.tabInd())
         if len(self.recentlyAccessedTabs) > 2:
             del self.recentlyAccessedTabs[0]
-
-
-    def create_page(self, *contents):
-        page = QWidget()
-        vbox = QVBoxLayout()
-        for c in contents:
-            vbox.addWidget(c)
-
-        page.setLayout(vbox)
-        return page
-
-
-    def create_new_page_button(self):
-        btn = QPushButton('Create a new page!')
-        btn.clicked.connect(self.add_page)
-        return btn
-
-
-    def add_page(self):
-        self.pages.append( self.create_page( self.createLineEdit(), self.create_textEditor()) )
-        tabName = os.path.splitext(os.path.basename(self.lineEdits[-1].text()))[0]
-        self.tabs.addTab( self.pages[-1] , tabName )
-        self.tabs.setCurrentIndex( len(self.pages)-1 )
 
 
     def onTabCycle(self):
@@ -545,27 +686,131 @@ class MyWindow(QMainWindow):
 
 
     def onTabPrev(self):
-        tabInd = self.tabs.currentIndex()
+        tabInd = self.tabInd()
         tabInd = (tabInd - 1) if tabInd > 0 else (len(self.pages) - 1)
         self.tabs.setCurrentIndex(tabInd)
 
 
     def onTabNext(self):
-        tabInd = self.tabs.currentIndex()
+        tabInd = self.tabInd()
         tabInd = (tabInd + 1) if tabInd < (len(self.pages) - 1) else 0
         self.tabs.setCurrentIndex(tabInd)
+
+
+    #############
+    # Bookmarks #
+    #############
+
+    def onBookmarkSet(self, ind):
+        self.bookmarks[ind] = [self.files[self.tabInd()], self.tEditors[self.tabInd()].getCursorPosition()]
+
+
+    def onBookmarkGo(self, ind):
+        filename, pos = self.bookmarks[ind]
+        if filename in self.files:
+            tabInd = self.files.index(filename)
+            self.tabs.setCurrentIndex(tabInd)
+            self.tEditors[tabInd].setCursorPosition(pos[0], pos[1])
+
+
+    ##############
+    # Go Options #
+    ##############
+
+    def goToLine(self):
+        pos, ok = QInputDialog.getInt(self,"Go to Line","Enter line number")
+        if ok:
+            self.tEditors[self.tabInd()].setCursorPosition((pos-1), 0)
+            self.tEditors[self.tabInd()].setFocus()
+
+
+    ####################
+    # Helper Functions #
+    ####################
+
+    def tabInd(self):
+        return self.tabs.currentIndex()
+
+
+    def statusMessage(self, msg, dur=1):
+        dur *= 1000
+        self.statusbar.showMessage(msg, dur)
+        logger.info(msg)
+
+
+    def quickPrompt(self, title, message):
+        reply = QMessageBox.question(self, title,
+                        message, QMessageBox.Yes, QMessageBox.No)
+        return reply == QMessageBox.Yes
+
+
+    def asteriskTitle(self):
+        tabName = '{}*'.format(os.path.splitext(os.path.basename(self.lineEdits[self.tabInd()].text()))[0])
+        self.tabs.setTabText(self.tabInd(), tabName)
+        self.setWindowTitle('{} - {}'.format(self.title, tabName))
+
+
+    def updateLineColInfo(self):
+        cursorLine, cursorCol = self.tEditors[self.tabInd()].getCursorPosition()
+        self.lineColLabel.setText('Ln {}, Cl {}'.format(cursorLine + 1, cursorCol + 1))
 
 
     def lineEditEnter(self):
         # TODO make sure you can't lose your changes to current file
         # TODO maybe add a separate button for open
-        filepathText = self.lineEdits[self.tabs.currentIndex()].text()
+        filepathText = self.lineEdits[self.tabInd()].text()
         if filepathText:
             if os.path.isfile(filepathText):
                 self.currentFile = filepathText
                 self.openFile()
             else:
                 self.saveFile()
+
+
+    #######
+    # REF #
+    #######
+
+    #     items = ("C", "C++", "Java", "Python")
+
+    # item, ok = QInputDialog.getItem(self, "select input dialog",
+    # "list of languages", items, 0, False)
+
+    # if ok and item:
+    #     self.le.setText(item)
+
+    # def gettext(self):
+    #     text, ok = QInputDialog.getText(self, 'Text Input Dialog', 'Enter your name:')
+    #     if ok:
+    #         self.le1.setText(str(text))
+
+    # def getint(self):
+    #     num,ok = QInputDialog.getInt(self,"integer input dualog","enter a number")
+
+    #     if ok:
+    #         self.le2.setText(str(num))
+
+    # text cursor functions
+    # def get_text_cursor(self):
+    #     return self.TextEdit.textCursor()
+
+    # def set_text_cursor_pos(self, value):
+    #     tc = self.get_text_cursor()
+    #     tc.setPosition(value, QtGui.QTextCursor.KeepAnchor)
+    #     self.TextEdit.setTextCursor(tc)
+
+    # def get_text_cursor_pos(self):
+    #     return self.get_text_cursor().position()
+
+    # def get_text_selection(self):
+    #     cursor = self.get_text_cursor()
+    #     return cursor.selectionStart(), cursor.selectionEnd()
+
+    # def set_text_selection(self, start, end):
+    #     cursor = self.get_text_cursor()
+    #     cursor.setPosition(start)
+    #     cursor.setPosition(end, QtGui.QTextCursor.KeepAnchor)
+    #     self.TextEdit.setTextCursor(cursor)
 
     # if os.path.exists(filePath):
     #     #the file is there
@@ -575,11 +820,9 @@ class MyWindow(QMainWindow):
     #     #can not write there
 
 
-    def newFile(self):
-        self.add_page()
 
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    window = MyWindow()
+    window = JSONitorWindow()
     sys.exit(app.exec_())

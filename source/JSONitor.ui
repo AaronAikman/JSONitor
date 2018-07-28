@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>827</width>
-    <height>413</height>
+    <height>392</height>
    </rect>
   </property>
   <property name="palette">
@@ -183,6 +183,8 @@
     </property>
     <addaction name="actionUndo"/>
     <addaction name="actionRedo"/>
+    <addaction name="separator"/>
+    <addaction name="actionSelect_Word"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -190,8 +192,43 @@
     </property>
     <addaction name="actionAbout"/>
    </widget>
+   <widget class="QMenu" name="menuGo">
+    <property name="title">
+     <string>Go</string>
+    </property>
+    <widget class="QMenu" name="menuGo_to_Tab">
+     <property name="title">
+      <string>Go to Tab</string>
+     </property>
+     <addaction name="actionGo_to_Tab_1"/>
+     <addaction name="actionGo_to_Tab_2"/>
+     <addaction name="actionGo_to_Tab_3"/>
+     <addaction name="actionGo_to_Tab_4"/>
+     <addaction name="actionGo_to_Tab_5"/>
+     <addaction name="actionGo_to_Tab_6"/>
+     <addaction name="actionGo_to_Tab_7"/>
+     <addaction name="actionGo_to_Tab_8"/>
+     <addaction name="actionGo_to_Tab_9"/>
+     <addaction name="actionGo_to_Tab_10"/>
+    </widget>
+    <widget class="QMenu" name="menuSet_Bookmark">
+     <property name="title">
+      <string>Set Bookmark</string>
+     </property>
+    </widget>
+    <widget class="QMenu" name="menuGo_Bookmark">
+     <property name="title">
+      <string>Go to Bookmark</string>
+     </property>
+    </widget>
+    <addaction name="menuGo_to_Tab"/>
+    <addaction name="menuSet_Bookmark"/>
+    <addaction name="menuGo_Bookmark"/>
+    <addaction name="actionGo_to_Line"/>
+   </widget>
    <addaction name="menuFile"/>
    <addaction name="menuEdit"/>
+   <addaction name="menuGo"/>
    <addaction name="menuHelp"/>
   </widget>
   <widget class="QStatusBar" name="statusbar">
@@ -303,6 +340,131 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+PgDown</string>
+   </property>
+  </action>
+  <action name="actionSelect_Word">
+   <property name="text">
+    <string>Select Word</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+D</string>
+   </property>
+  </action>
+  <action name="actionGo_to_Tab_1">
+   <property name="text">
+    <string>Go to Tab 1</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+1</string>
+   </property>
+  </action>
+  <action name="actionGo_to_Tab_2">
+   <property name="text">
+    <string>Go to Tab 2</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+2</string>
+   </property>
+  </action>
+  <action name="actionGo_to_Tab_3">
+   <property name="text">
+    <string>Go to Tab 3</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+3</string>
+   </property>
+  </action>
+  <action name="actionGo_to_Tab_4">
+   <property name="text">
+    <string>Go to Tab 4</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+4</string>
+   </property>
+   <property name="visible">
+    <bool>true</bool>
+   </property>
+   <property name="menuRole">
+    <enum>QAction::TextHeuristicRole</enum>
+   </property>
+   <property name="iconVisibleInMenu">
+    <bool>true</bool>
+   </property>
+  </action>
+  <action name="actionGo_to_Tab_5">
+   <property name="text">
+    <string>Go to Tab 5</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+5</string>
+   </property>
+  </action>
+  <action name="actionGo_to_Tab_6">
+   <property name="text">
+    <string>Go to Tab 6</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+6</string>
+   </property>
+  </action>
+  <action name="actionGo_to_Tab_7">
+   <property name="text">
+    <string>Go to Tab 7</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+7</string>
+   </property>
+  </action>
+  <action name="actionGo_to_Tab_8">
+   <property name="text">
+    <string>Go to Tab 8</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+8</string>
+   </property>
+  </action>
+  <action name="actionGo_to_Tab_9">
+   <property name="text">
+    <string>Go to Tab 9</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+9</string>
+   </property>
+  </action>
+  <action name="actionGo_to_Tab_10">
+   <property name="text">
+    <string>Go to Tab 10</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+0</string>
+   </property>
+  </action>
+  <action name="actiontemp">
+   <property name="text">
+    <string>temp</string>
+   </property>
+  </action>
+  <action name="actionasdf">
+   <property name="text">
+    <string>asdf</string>
+   </property>
+  </action>
+  <action name="actiontemp_2">
+   <property name="text">
+    <string>temp</string>
+   </property>
+  </action>
+  <action name="actiontemp_3">
+   <property name="text">
+    <string>temp</string>
+   </property>
+  </action>
+  <action name="actionGo_to_Line">
+   <property name="text">
+    <string>Go to Line</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+G</string>
    </property>
   </action>
  </widget>
