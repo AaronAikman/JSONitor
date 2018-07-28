@@ -169,6 +169,10 @@
     <addaction name="separator"/>
     <addaction name="actionClose"/>
     <addaction name="actionReopen_Tab"/>
+    <addaction name="actionCycle_Tabs"/>
+    <addaction name="actionPrevious_Tab"/>
+    <addaction name="actionNext_Tab"/>
+    <addaction name="separator"/>
     <addaction name="actionSettings"/>
     <addaction name="separator"/>
     <addaction name="actionQuit"/>
@@ -275,6 +279,30 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+Shift+T</string>
+   </property>
+  </action>
+  <action name="actionCycle_Tabs">
+   <property name="text">
+    <string>Cycle Tabs</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Tab</string>
+   </property>
+  </action>
+  <action name="actionPrevious_Tab">
+   <property name="text">
+    <string>Previous Tab</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+PgUp</string>
+   </property>
+  </action>
+  <action name="actionNext_Tab">
+   <property name="text">
+    <string>Next Tab</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+PgDown</string>
    </property>
   </action>
  </widget>
