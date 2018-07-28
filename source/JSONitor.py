@@ -4,20 +4,16 @@
 TODO
 add drag and drop
 add syntax highlighting
-add tabs
 add comparison
 add an About
 logger
 save temp files/autosave
 Use json file for ui colors/settings
 Add goto line
-Asterisk in title if not saved
-fix layout
 source folding
 bookmarking
 find and replace
 conversion to (xml, csv, yaml)
-Ln: Col: indicator
 Undo stack
 validation
 copy to clipboard
@@ -26,6 +22,7 @@ Minimize/compact
 Feedback/email
 Tree view?
 Form view?
+use margin clicks for reordering elements
 
 
 
@@ -56,6 +53,49 @@ from PyQt5.Qsci import *
 # import syntax
 import random
 
+################
+# Logger Setup #
+################
+import logging
+import getpass
+
+appTitle = 'JSONitor'
+
+userName = getpass.getuser()
+
+# Log File
+sourcePath = os.path.dirname(os.path.realpath(__file__))
+logFileName = '{}.log'.format(appTitle)
+logFile = '{}/{}'.format(sourcePath, logFileName)
+
+
+print('Logfile is {}'.format(logFile))
+logger = logging.getLogger('{} Logger'.format(appTitle))
+logger.setLevel(logging.INFO)
+fh = logging.FileHandler(logFile)
+fh.setLevel(logging.INFO)
+
+# Version Number
+versionNumber = '1.0.1'
+
+# Create formatter
+formatter = logging.Formatter('%(asctime)s - %(name)s {} - {} - %(levelname)s - %(message)s'.format(versionNumber, userName))
+fh.setFormatter(formatter)
+
+# reomoving prexisting handlers (NOTE may be unnecessary)
+for lHand in logger.handlers:
+    logger.removeHandler(lHand)
+logger.addHandler(fh)
+
+# NOTE May need to be set to 0 in order to prevent logging from bubbling up to maya's logger
+# logger.propagate=1
+logger.info('{} Initiated'.format(appTitle))
+
+
+######
+# UI #
+######
+
 class MyWindow(QMainWindow):
     def __init__(self):
         super(MyWindow, self).__init__()
@@ -63,6 +103,7 @@ class MyWindow(QMainWindow):
         uic.loadUi(r'F:\Database\Satchel\Works\Scripting\JSONitor\source\JSONitor.ui', self)
 
         self.currentFile = None
+
 
         # p = w.palette()
         # p.setColor(w.backgroundRole(), Qt.red)
@@ -76,23 +117,25 @@ class MyWindow(QMainWindow):
         self.actionSave_As.triggered.connect(self.saveAs)
         self.actionNew.triggered.connect(self.newFile)
         self.actionClose.triggered.connect(self.closeTab)
+        self.actionReopen_Tab.triggered.connect(self.reopenTab)
+        self.actionQuit.triggered.connect(self.closeWindow)
         # print(dir(self.filepathLineEdit))
         self.filepathLineEdit.returnPressed.connect(self.lineEditEnter)
         # self.filepathLineEdit.dropEvent.connect(self.lineEditEnter)
-        self.textEdit.textChanged.connect(self.asteriskTitle)
+        # self.textEdit.textChanged.connect(self.asteriskTitle)
         # self.tabLayoutList = list(range(10))
         self.initUI()
         self.show()
 
     def initUI(self):
-        self.title = 'JSONitor - JSON Editor'
+        self.title = 'JSONitor (JSON Editor by Aaron Aikman)'
         self.setWindowTitle(self.title)
         backgroundColor = QColor()
         backgroundColor.setNamedColor('#282821')
         self.setAutoFillBackground(True)
         p = self.palette()
-        # p.setColor(self.backgroundRole(), Qt.gray)
         p.setColor(self.backgroundRole(), backgroundColor)
+        p.setColor(self.backgroundRole(), Qt.gray)
         self.filepathLineEdit.setStyleSheet('''
             QLineEdit {
                 border: 2px solid rgb(63, 63, 63);
@@ -118,7 +161,7 @@ class MyWindow(QMainWindow):
 
         self.tabLayoutList = []
         self.tabs = QTabWidget()
-        # self.tabs.currentChanged.connect(self.onTabChange)
+        self.tabs.currentChanged.connect(self.onTabChange)
         # self.tab1 = QWidget()
         # self.tab2 = QWidget()
         # self.tabs.resize(300,200)
@@ -155,12 +198,20 @@ class MyWindow(QMainWindow):
         self.filepathLineEdit.deleteLater()
         self.filepathLineEdit = None
 
+        # Line Column Label
+        self.lineColLabel = QLabel()
+        self.lineColLabel.setText('Ln 0, Cl 0')
+        self.lineColLabel.setAlignment(Qt.AlignRight)
+        self.statusbar.addWidget(self.lineColLabel)
+
+
         # self.next_item_is_table = False
-        self.tabItems = []
         self.pages = []
         self.tEditors = []
         self.lineEdits = []
         self.files = []
+
+        self.recentlyClosedFiles = []
         self.add_page()
 
 
@@ -170,7 +221,7 @@ class MyWindow(QMainWindow):
         lineEdit.returnPressed.connect(self.lineEditEnter)
         self.lineEdits.append(lineEdit)
         # TODO fix this naming the wrong thing if a tab has been closed
-        tmpFileName = ('{}\\AutoSave\\tmp{}.json'.format(os.getcwd(), (len(self.files) + 1))).replace('\\', '/')
+        tmpFileName = ('{}\\AutoSave\\tmp{}.json'.format(sourcePath, (len(self.files) + 1))).replace('\\', '/')
         self.files.append(tmpFileName)
         lineEdit.setText(tmpFileName)
         return lineEdit
@@ -271,7 +322,11 @@ class MyWindow(QMainWindow):
         # tEditor.setFont(self.__myFont)
 
         tEditor.textChanged.connect(self.asteriskTitle)
+        tEditor.cursorPositionChanged.connect(self.updateLineColInfo)
+
         self.tEditors.append(tEditor)
+
+        # print(dir(tEditor))
         return tEditor
 
         # print(dir(self.__editor))
@@ -341,24 +396,31 @@ class MyWindow(QMainWindow):
         if self.currentFile in self.files:
             self.tabs.setCurrentIndex(self.files.index(self.currentFile))
         else:
+            logger.debug('File not found in current tabs. Opening new tab.')
             self.add_page()
             self.lineEdits[self.tabs.currentIndex()].setText(self.currentFile)
             with open(self.currentFile, 'r', encoding='utf-8-sig') as f:
                 data = f.read()
-                # print(data)
                 self.tEditors[self.tabs.currentIndex()].setText(data)
-                self.files[self.tabs.currentIndex()] = self.currentFile
 
-            self.setWindowTitle('{} {}'.format(self.title, self.currentFile))
+            self.files[self.tabs.currentIndex()] = self.currentFile
+            print(self.files)
+
+            self.setWindowTitle('{} - {}'.format(self.title, os.path.basename(self.currentFile)))
+            tabName = os.path.splitext(os.path.basename(self.lineEdits[self.tabs.currentIndex()].text()))[0]
+            self.tabs.setTabText(self.tabs.currentIndex(), tabName)
 
 
     def saveFile(self, doDialog = 0):
-        filename = self.currentFile
+        # TODO fix infinite loop if you cancel save dialog
+        # filename = self.currentFile
+        filename = self.files[self.tabs.currentIndex()]
         fpText = self.lineEdits[self.tabs.currentIndex()].text()
         if doDialog:
             filename = QFileDialog.getSaveFileName(self, 'Save File')[0]
-            self.currentFile = filename
-            self.lineEdits[self.tabs.currentIndex()].setText(self.currentFile)
+            if filename:
+                self.currentFile = filename
+                self.lineEdits[self.tabs.currentIndex()].setText(self.currentFile)
         elif filename != fpText:
             if os.path.isfile(fpText):
                 if self.quickPrompt('Save?', 'Do you want to OVERWRITE to the new filepath instead of the original?'):
@@ -381,8 +443,12 @@ class MyWindow(QMainWindow):
                 # TODO add try in case can't make dir
             with open(filename, 'w') as f:
                 f.write(newText)
-            self.setWindowTitle('{} {}'.format(self.title, self.currentFile))
+
+            self.setWindowTitle('{} - {}'.format(self.title, os.path.basename(self.currentFile)))
+
             self.files[self.tabs.currentIndex()] = self.currentFile
+            tabName = os.path.splitext(os.path.basename(self.lineEdits[self.tabs.currentIndex()].text()))[0]
+            self.tabs.setTabText(self.tabs.currentIndex(), tabName)
         else:
             self.saveAs()
 
@@ -398,21 +464,55 @@ class MyWindow(QMainWindow):
         sys.exit()
 
     def closeTab(self):
-        self.tabs.removeTab(self.tabs.currentIndex())
+        tabIndex = self.tabs.currentIndex()
+        self.recentlyClosedFiles.append(self.files[self.tabs.currentIndex()])
+        self.tabs.removeTab(tabIndex)
+
+        del self.pages[tabIndex]
+        del self.tEditors[tabIndex]
+        del self.lineEdits[tabIndex]
+        del self.files[tabIndex]
         # TODO also remove index
 
+    def reopenTab(self):
+        reopening = True
+        while reopening:
+            if self.recentlyClosedFiles:
+                if os.path.isfile(self.recentlyClosedFiles[-1]):
+                    self.currentFile = self.recentlyClosedFiles[-1]
+                    # self.recentlyClosedFiles = self.recentlyClosedFiles[:-1]
+                    del self.recentlyClosedFiles[-1]
+                    self.openFile()
+                    reopening = False
+                else:
+                    del self.recentlyClosedFiles[-1]
+            else:
+                reopening = False
+
     def asteriskTitle(self):
-        if self.currentFile:
-            self.setWindowTitle('JSONitor - JSON Editor {}*'.format(self.currentFile))
+        tabName = '{}*'.format(os.path.splitext(os.path.basename(self.lineEdits[self.tabs.currentIndex()].text()))[0])
+        self.tabs.setTabText(self.tabs.currentIndex(), tabName)
+        self.setWindowTitle('{} - {}'.format(self.title, tabName))
+        # if self.currentFile:
+
+    def updateLineColInfo(self):
+        cursorLine, cursorCol = self.tEditors[self.tabs.currentIndex()].getCursorPosition()
+        # print(self.lineColLabel)
+        self.lineColLabel.setText('Ln {}, Cl {}'.format(cursorLine + 1, cursorCol + 1))
+
 
     def onTabChange(self):
+        # tabName = '{}'.format(os.path.splitext(os.path.basename(self.lineEdits[-1].text()))[0])
+        # self.tabs.setTabText(self.tabs.currentIndex(), tabName)
+        self.setWindowTitle('{} - {}'.format(self.title, self.tabs.tabText(self.tabs.currentIndex())))
+        # print(self.files)
         # print(dir(self.tabs))
         # print(self.tabs.currentIndex())
         # print(self.tabLayoutList)
         # ind = self.tabs.currentIndex()
         # self.tabLayoutList[ind].addWidget(self.__editor)
         # print(self.tabs.currentWidget().layout.addWidget(self.__editor))
-        pass
+        # pass
 
     def create_page(self, *contents):
         page = QWidget()
@@ -465,6 +565,7 @@ class MyWindow(QMainWindow):
         # self.pages[-1].setTabText(os.path.dirname(self.currentFile))
         # print(dir(self.tabs.currentWidget()))
         # self.tabs.currentWidget().setWindowTitle('hi')
+
 
 
     def onTabCycle(self):

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>826</width>
-    <height>396</height>
+    <width>827</width>
+    <height>413</height>
    </rect>
   </property>
   <property name="palette">
@@ -106,12 +106,27 @@
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QGridLayout" name="gridLayout">
+    <property name="leftMargin">
+     <number>5</number>
+    </property>
+    <property name="topMargin">
+     <number>5</number>
+    </property>
+    <property name="rightMargin">
+     <number>5</number>
+    </property>
+    <property name="bottomMargin">
+     <number>0</number>
+    </property>
     <item row="1" column="0">
      <layout class="QVBoxLayout" name="verticalLayout_2">
       <item>
        <layout class="QHBoxLayout" name="horizontalLayout">
         <item>
          <widget class="QTextEdit" name="textEdit">
+          <property name="enabled">
+           <bool>true</bool>
+          </property>
           <property name="font">
            <font>
             <family>DejaVu Sans Mono</family>
@@ -125,7 +140,11 @@
      </layout>
     </item>
     <item row="0" column="0">
-     <widget class="QLineEdit" name="filepathLineEdit"/>
+     <widget class="QLineEdit" name="filepathLineEdit">
+      <property name="cursorMoveStyle">
+       <enum>Qt::VisualMoveStyle</enum>
+      </property>
+     </widget>
     </item>
    </layout>
   </widget>
@@ -134,7 +153,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>826</width>
+     <width>827</width>
      <height>21</height>
     </rect>
    </property>
@@ -148,8 +167,11 @@
     <addaction name="actionSave"/>
     <addaction name="actionSave_As"/>
     <addaction name="separator"/>
-    <addaction name="actionSettings"/>
     <addaction name="actionClose"/>
+    <addaction name="actionReopen_Tab"/>
+    <addaction name="actionSettings"/>
+    <addaction name="separator"/>
+    <addaction name="actionQuit"/>
    </widget>
    <widget class="QMenu" name="menuEdit">
     <property name="title">
@@ -168,7 +190,14 @@
    <addaction name="menuEdit"/>
    <addaction name="menuHelp"/>
   </widget>
-  <widget class="QStatusBar" name="statusbar"/>
+  <widget class="QStatusBar" name="statusbar">
+   <property name="enabled">
+    <bool>true</bool>
+   </property>
+   <property name="sizeGripEnabled">
+    <bool>true</bool>
+   </property>
+  </widget>
   <action name="actionOpen">
    <property name="text">
     <string>Open</string>
@@ -226,10 +255,26 @@
   </action>
   <action name="actionClose">
    <property name="text">
-    <string>Close</string>
+    <string>Close Tab</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+W</string>
+   </property>
+  </action>
+  <action name="actionQuit">
+   <property name="text">
+    <string>Quit</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Q</string>
+   </property>
+  </action>
+  <action name="actionReopen_Tab">
+   <property name="text">
+    <string>Reopen Tab</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+T</string>
    </property>
   </action>
  </widget>
