@@ -1,6 +1,6 @@
 import json
 
-class JSONTools:
+class JSONConverter:
     def __init__(self, JSONText=None):
         super().__init__()
         if JSONText:
@@ -20,18 +20,18 @@ class JSONTools:
     #     return [x for x in self.__dict]
 
 
-    def getDepth(self, d, level=1):
+    def _getDepth(self, d, level=1):
         if not isinstance(d, dict) or not d:
             return level
-        return max(self.getDepth(d[k], level + 1) for k in d)
+        return max(self._getDepth(d[k], level + 1) for k in d)
 
-    def getAllKeys(self, d, level=1, keys=[]):
+    def _getAllKeys(self, d, level=1, keys=[]):
         if not isinstance(d, dict) or not d:
             return level
         keys.append([k for k in d])
         # print(keys)
-        # return max(self.getAllKeys(d[k], level + 1, keys) for k in d)
-        [self.getAllKeys(d[k], level + 1, keys) for k in d]
+        # return max(self._getAllKeys(d[k], level + 1, keys) for k in d)
+        [self._getAllKeys(d[k], level + 1, keys) for k in d]
         return keys
 
 
@@ -50,6 +50,7 @@ class JSONTools:
             return None
 
     def __filterValue(self, v):
+        # return json.JSONDecoder.decode(self, v)
         if v in ['None', 'null']:
             return None
         elif v in ['True', 'true']:
@@ -74,12 +75,17 @@ class JSONTools:
                 # Handling potential key, vals
                 if not i % 2:
                     prim, sec = arr[i], arr[i+1]
-                    # if list has only one element, then process confirmed val accordingly
-                    if len(sec) == 1:
-                        dic[prim] = self.__filterValue(sec[0])
+                    if isinstance(sec, list): # TODO figure out if this is needed
+                        # if list has only one element, then process confirmed val accordingly
+                        if len(sec) == 1:
+                            dic[prim] = self.__filterValue(sec[0])
+                        elif isinstance(sec[1], list):
+                            # continue to search for dicts
+                            dic[prim] = self.getDictFromLists(sec)
+                        else:
+                            dic[prim] = [self.__filterValue(x) for x in sec]
                     else:
-                        # continue to search for dicts
-                        dic[prim] = self.getDictFromLists(sec)
+                        dic[prim] = self.__filterValue(sec)
         else:
             # if not a set of pairs, return list immediately after checking values
             return [self.__filterValue(x) for x in arr]
@@ -115,4 +121,4 @@ class JSONTools:
 # }
 #     ''')
 # j = JSONAsset(testJSON)
-# print(j.getAllKeys(j.getDict()))
+# print(j._getAllKeys(j.getDict()))

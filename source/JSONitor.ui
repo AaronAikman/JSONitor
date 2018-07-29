@@ -10,97 +10,6 @@
     <height>392</height>
    </rect>
   </property>
-  <property name="palette">
-   <palette>
-    <active>
-     <colorrole role="Text">
-      <brush brushstyle="SolidPattern">
-       <color alpha="255">
-        <red>196</red>
-        <green>195</green>
-        <blue>209</blue>
-       </color>
-      </brush>
-     </colorrole>
-     <colorrole role="ButtonText">
-      <brush brushstyle="SolidPattern">
-       <color alpha="255">
-        <red>0</red>
-        <green>0</green>
-        <blue>0</blue>
-       </color>
-      </brush>
-     </colorrole>
-     <colorrole role="Base">
-      <brush brushstyle="SolidPattern">
-       <color alpha="255">
-        <red>43</red>
-        <green>43</green>
-        <blue>43</blue>
-       </color>
-      </brush>
-     </colorrole>
-    </active>
-    <inactive>
-     <colorrole role="Text">
-      <brush brushstyle="SolidPattern">
-       <color alpha="255">
-        <red>196</red>
-        <green>195</green>
-        <blue>209</blue>
-       </color>
-      </brush>
-     </colorrole>
-     <colorrole role="ButtonText">
-      <brush brushstyle="SolidPattern">
-       <color alpha="255">
-        <red>0</red>
-        <green>0</green>
-        <blue>0</blue>
-       </color>
-      </brush>
-     </colorrole>
-     <colorrole role="Base">
-      <brush brushstyle="SolidPattern">
-       <color alpha="255">
-        <red>43</red>
-        <green>43</green>
-        <blue>43</blue>
-       </color>
-      </brush>
-     </colorrole>
-    </inactive>
-    <disabled>
-     <colorrole role="Text">
-      <brush brushstyle="SolidPattern">
-       <color alpha="255">
-        <red>120</red>
-        <green>120</green>
-        <blue>120</blue>
-       </color>
-      </brush>
-     </colorrole>
-     <colorrole role="ButtonText">
-      <brush brushstyle="SolidPattern">
-       <color alpha="255">
-        <red>0</red>
-        <green>0</green>
-        <blue>0</blue>
-       </color>
-      </brush>
-     </colorrole>
-     <colorrole role="Base">
-      <brush brushstyle="SolidPattern">
-       <color alpha="255">
-        <red>47</red>
-        <green>47</green>
-        <blue>47</blue>
-       </color>
-      </brush>
-     </colorrole>
-    </disabled>
-   </palette>
-  </property>
   <property name="windowTitle">
    <string>JSONitor</string>
   </property>
@@ -226,8 +135,16 @@
     <addaction name="menuGo_Bookmark"/>
     <addaction name="actionGo_to_Line"/>
    </widget>
+   <widget class="QMenu" name="menuJSON">
+    <property name="title">
+     <string>JSON</string>
+    </property>
+    <addaction name="actionUpdate_Text"/>
+    <addaction name="actionUpdate_Tree_View"/>
+   </widget>
    <addaction name="menuFile"/>
    <addaction name="menuEdit"/>
+   <addaction name="menuJSON"/>
    <addaction name="menuGo"/>
    <addaction name="menuHelp"/>
   </widget>
@@ -465,6 +382,28 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+G</string>
+   </property>
+  </action>
+  <action name="actionUpdate_Text">
+   <property name="text">
+    <string>Update Text</string>
+   </property>
+   <property name="toolTip">
+    <string>Update Text based upon Tree View</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+T</string>
+   </property>
+  </action>
+  <action name="actionUpdate_Tree_View">
+   <property name="text">
+    <string>Update Tree View</string>
+   </property>
+   <property name="toolTip">
+    <string>Update Tree View based upon Text</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Y</string>
    </property>
   </action>
  </widget>

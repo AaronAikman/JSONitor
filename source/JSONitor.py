@@ -2,6 +2,7 @@
 
 
 TODO
+TEXT EDIT
 add drag and drop
 copy/paste
 recently closed files
@@ -17,15 +18,32 @@ copy to clipboard
 Feedback/email
 select Occurence
 select all Occurences
+Ctrl up and down to scroll
+ability to resize pane middle
 
+LINE EDIT
+Up down arrows to search through dir
+left right arrows to go up or down folders
+
+JSON
+fix decoder/filterValue?
 conversion to (xml, csv, yaml)
 validation
 format/Beautify
 Minimize/compact
 use margin clicks for reordering elements
 
-Tree view?
-Form view?
+TREE VIEW
+add lengths and indexing
+json to tree
+tree to json
+arrow buttons for conversion
+reorder
+edit
+duplicate
+insert
+remove
+sort
 
 NOTE
 Shift Alt Drag to multi select
@@ -56,7 +74,11 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.Qsci import *
 
-import Utilities.JSONProcessing
+import Utilities.JSONTools as jst
+import json
+
+# TODO Move or strip down
+jsc = jst.JSONConverter()
 
 # import functools
 
@@ -98,9 +120,6 @@ logger.addHandler(fh)
 # logger.propagate=1
 logger.info('{} Initiated'.format(appTitle))
 
-# Testing
-j = Utilities.JSONProcessing.JSONAsset
-
 
 ######
 # UI #
@@ -121,6 +140,8 @@ class JSONitorWindow(QMainWindow):
         self.tEditors = []
         self.lineEdits = []
         self.files = []
+        self.itemModels = []
+        self.treeViews = []
 
         # History
         self.recentlyClosedFiles = []
@@ -145,6 +166,8 @@ class JSONitorWindow(QMainWindow):
         self.actionPrevious_Tab.triggered.connect(self.onTabPrev)
         self.actionNext_Tab.triggered.connect(self.onTabNext)
         self.actionQuit.triggered.connect(self.closeWindow)
+        self.actionUpdate_Tree_View.triggered.connect(self.updateTreeViewFromText)
+        self.actionUpdate_Text.triggered.connect(self.updateTextFromTreeView)
         self.filepathLineEdit.returnPressed.connect(self.lineEditEnter)
 
         # Go options
@@ -281,21 +304,52 @@ class JSONitorWindow(QMainWindow):
     def initUI(self):
         self.title = 'JSONitor (JSON Editor by Aaron Aikman)'
         self.setWindowTitle(self.title)
-        backgroundColor = QColor()
-        backgroundColor.setNamedColor('#282821')
-        self.setAutoFillBackground(True)
-        p = self.palette()
-        p.setColor(self.backgroundRole(), backgroundColor)
-        p.setColor(self.backgroundRole(), Qt.gray)
-        self.filepathLineEdit.setStyleSheet('''
+        self.doStyling = False
+
+        # Colors
+        # backgroundColor = QColor()
+        # backgroundColor.setNamedColor('#282821')
+        # self.setAutoFillBackground(True)
+        # p = self.palette()
+        # p.setColor(self.backgroundRole(), backgroundColor)
+        # p.setColor(self.backgroundRole(), Qt.gray)
+        # self.filepathLineEdit.setStyleSheet('''
+        #     QLineEdit {
+        #         border: 2px solid rgb(63, 63, 63);
+        #         color: rgb(255, 255, 255);
+        #         background-color: rgb(128, 128, 128);
+        #     }
+        # ''')
+        # # p.setColor(self.filepathLineEdit.backgroundRole(), backgroundColor)
+        # self.setPalette(p)
+
+        # Colors
+        self.lineEditStyleSheet = ('''
             QLineEdit {
                 border: 2px solid rgb(63, 63, 63);
                 color: rgb(255, 255, 255);
                 background-color: rgb(128, 128, 128);
             }
-        ''')
-        # p.setColor(self.filepathLineEdit.backgroundRole(), backgroundColor)
-        self.setPalette(p)
+            ''')
+
+        self.treeViewStyleSheet = ('''
+            QTreeView {
+                border: 2px solid rgb(63, 63, 63);
+                color: rgb(255, 255, 255);
+                background-color: rgb(128, 128, 128);
+            }
+            ''')
+
+        self.textEditStyleSheet = ('''
+            QsciScintilla {
+                border: 2px solid rgb(63, 63, 63);
+                color: rgb(255, 255, 255);
+                background-color: rgb(128, 128, 128);
+            }
+            ''')
+
+
+
 
         # syntax.PythonHighlighter(self.textEdit.document())
         # self.__editor = QsciScintilla()
@@ -338,7 +392,7 @@ class JSONitorWindow(QMainWindow):
 
 
 
-        self.add_page()
+        self.addPage()
 
     ###################
     # Widget / Window #
@@ -353,9 +407,11 @@ class JSONitorWindow(QMainWindow):
         tmpFileName = ('{}\\AutoSave\\tmp{}.json'.format(sourcePath, (len(self.files) + 1))).replace('\\', '/')
         self.files.append(tmpFileName)
         lineEdit.setText(tmpFileName)
+        if self.doStyling:
+            lineEdit.setStyleSheet(self.lineEditStyleSheet)
         return lineEdit
 
-    def create_textEditor(self):
+    def createTextEditor(self):
 
 
         # ! Make instance of QSciScintilla class!
@@ -465,10 +521,12 @@ class JSONitorWindow(QMainWindow):
         # offset = tEditor.positionFromLineIndex(2, 5)
         # tEditor.SendScintilla(tEditor.SCI_ADDSELECTION, offset, offset)
 
-
-
+        if self.doStyling:
+            tEditor.setStyleSheet(self.textEditStyleSheet)
 
         self.tEditors.append(tEditor)
+
+
 
         return tEditor
 
@@ -509,24 +567,64 @@ class JSONitorWindow(QMainWindow):
         # self.setGeometry(500, 500, 500, 500)
 
 
-    def create_page(self, *contents):
+    def createTreeView(self):
+        tree = json.loads(self.tEditors[self.tabInd()].text())
+
+        itemModel = StandardItemModel()
+        print(dir(itemModel))
+        itemModel.populateTree(tree, itemModel.invisibleRootItem())
+        self.itemModels.append(itemModel)
+
+        treeView = QTreeView()
+        treeView.setModel(itemModel)
+        treeView.setHeaderHidden(True)
+        treeView.setDragDropMode(QAbstractItemView.InternalMove)
+        treeView.expandAll()
+        # treeView.collapseAll()
+        self.treeViews.append(treeView)
+
+        # Colors
+        # backgroundColor = QColor()
+        # backgroundColor.setNamedColor('#282821')
+        # treeView.setAutoFillBackground(True)
+        # p = treeView.palette()
+        # # print(dir(p.setColor))
+        # # p.setColor(treeView.backgroundRole(), backgroundColor)
+        # # p.setColor(treeView.role(), backgroundColor)
+        # p.setColor(treeView.backgroundRole(), Qt.red)
+        # treeView.setPalette(p)
+        # treeView.setStyleSheet('''
+        #     QTreeView {
+        #         border: 2px solid rgb(63, 63, 63);
+        #         color: rgb(255, 255, 255);
+        #         background-color: rgb(128, 128, 128);
+        #     }
+        # ''')
+        if self.doStyling:
+            treeView.setStyleSheet(self.treeViewStyleSheet)
+
+
+        return treeView
+
+
+    def createPage(self, *contents):
         page = QWidget()
         vbox = QVBoxLayout()
-        for c in contents:
-            vbox.addWidget(c)
+        hbox = QHBoxLayout()
+        # TODO fix to allow for specific ordering
+        for lyt, c in contents:
+            if lyt == 'v':
+                vbox.addWidget(c)
+            else:
+                hbox.addWidget(c)
+        vbox.addLayout(hbox)
 
         page.setLayout(vbox)
         return page
 
 
-    def create_new_page_button(self):
-        btn = QPushButton('Create a new page!')
-        btn.clicked.connect(self.add_page)
-        return btn
-
-
-    def add_page(self):
-        self.pages.append( self.create_page( self.createLineEdit(), self.create_textEditor()) )
+    def addPage(self):
+        self.pages.append( self.createPage( ('v', self.createLineEdit()), ('h', self.createTextEditor()), ('h', self.createTreeView())) )
         tabName = os.path.splitext(os.path.basename(self.lineEdits[-1].text()))[0]
         self.tabs.addTab( self.pages[-1] , tabName )
         self.tabs.setCurrentIndex( len(self.pages)-1 )
@@ -541,7 +639,7 @@ class JSONitorWindow(QMainWindow):
     #################
 
     def newFile(self):
-        self.add_page()
+        self.addPage()
 
     def getFile(self):
 
@@ -572,7 +670,7 @@ class JSONitorWindow(QMainWindow):
             self.tabs.setCurrentIndex(self.files.index(self.currentFile))
         else:
             logger.debug('File not found in current tabs. Opening new tab.')
-            self.add_page()
+            self.addPage()
             self.lineEdits[self.tabInd()].setText(self.currentFile)
             with open(self.currentFile, 'r', encoding='utf-8-sig') as f:
                 data = f.read()
@@ -584,6 +682,7 @@ class JSONitorWindow(QMainWindow):
             self.setWindowTitle('{} - {}'.format(self.title, os.path.basename(self.currentFile)))
             tabName = os.path.splitext(os.path.basename(self.lineEdits[self.tabInd()].text()))[0]
             self.tabs.setTabText(self.tabInd(), tabName)
+            self.updateTreeViewFromText()
 
 
     def saveFile(self, doDialog = 0):
@@ -649,6 +748,8 @@ class JSONitorWindow(QMainWindow):
         del self.tEditors[tabIndex]
         del self.lineEdits[tabIndex]
         del self.files[tabIndex]
+        del self.itemModels[tabIndex]
+        del self.treeViews[tabIndex]
 
 
     def onTabGo(self, ind):
@@ -732,7 +833,22 @@ class JSONitorWindow(QMainWindow):
         return self.tabs.currentIndex()
 
 
-    def statusMessage(self, msg, dur=1):
+    def updateTreeViewFromText(self):
+        tabIndex = self.tabInd()
+        itemModel = self.itemModels[tabIndex]
+        itemModel.clear()
+        itemModel.populateTree(json.loads(self.tEditors[tabIndex].text()) , itemModel.invisibleRootItem())
+        self.treeViews[tabIndex].expandAll()
+
+
+    def updateTextFromTreeView(self):
+        tabIndex = self.tabInd()
+        itemModel = self.itemModels[tabIndex]
+        newJSON = json.dumps(jsc.getDictFromLists(itemModel.itemList()), indent=4, sort_keys=False)
+        self.tEditors[tabIndex].setText(newJSON)
+
+
+    def statusMessage(self, msg, dur=2):
         dur *= 1000
         self.statusbar.showMessage(msg, dur)
         logger.info(msg)
@@ -819,6 +935,33 @@ class JSONitorWindow(QMainWindow):
     # else:
     #     #can not write there
 
+class StandardItemModel(QStandardItemModel):
+    def __init__(self, parent = None):
+        super(StandardItemModel, self).__init__(parent)
+
+    def itemList(self, parent = QModelIndex()):
+        items = []
+        for row in range(self.rowCount(parent)):
+            idx = self.index(row, 0, parent)
+            items.append(self.data(idx))
+            if self.hasChildren(idx):
+                items.append(self.itemList(idx))
+        return items
+
+
+    def populateTree(self, children, parent, sort=False):
+        if sort:
+            children = sorted(children)
+        if isinstance(children, (dict, list)):
+            for child in children:
+                child_item = QStandardItem(str(child))
+                parent.appendRow(child_item)
+                # if isinstance(children, types.DictType):
+                if isinstance(children, dict):
+                    self.populateTree(children[child], child_item)
+        else:
+            child_item = QStandardItem(str(children))
+            parent.appendRow(child_item)
 
 
 
