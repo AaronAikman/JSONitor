@@ -20,20 +20,24 @@ select Occurence
 select all Occurences
 Ctrl up and down to scroll
 ability to resize pane middle
+add line edit to panes for searching
 
 LINE EDIT
 Up down arrows to search through dir
 left right arrows to go up or down folders
 
 JSON
-fix decoder/filterValue?
+*fix decoder/filterValue?
 conversion to (xml, csv, yaml)
-validation
+*validation
 format/Beautify
 Minimize/compact
 use margin clicks for reordering elements
+Add schema support?
+compensate for NaN, Infinity, -Infinity
 
 TREE VIEW
+expand/collapse buttons
 add lengths and indexing
 json to tree
 tree to json
@@ -156,6 +160,8 @@ class JSONitorWindow(QMainWindow):
         # self.palette.setColor(Qt.red)
         # self.palette.setPalette(self.palette)
 
+        # TODO move to initUI?
+        # Actions
         self.actionOpen.triggered.connect(self.getFile)
         self.actionSave.triggered.connect(self.saveFile)
         self.actionSave_As.triggered.connect(self.saveAs)
@@ -302,6 +308,7 @@ class JSONitorWindow(QMainWindow):
         self.show()
 
     def initUI(self):
+        logger.debug('Initializing UI')
         self.title = 'JSONitor (JSON Editor by Aaron Aikman)'
         self.setWindowTitle(self.title)
         self.doStyling = False
@@ -356,6 +363,7 @@ class JSONitorWindow(QMainWindow):
         # print(self.__editor)
         # self.__editor.setMarginType(0, QsciScintilla.NumberMargin)
         # self.__editor.setMarginWidth(0, "0000")
+        # self.__editor.setMarginWidth(1, "00")
         # self.__editor.setMarginsForegroundColor(QColor("#ff888888"))
 
         # -------------------------------- #
@@ -399,6 +407,7 @@ class JSONitorWindow(QMainWindow):
     ###################
 
     def createLineEdit(self):
+        logger.debug('Creating Line Edit')
         lineEdit = QLineEdit()
         lineEdit.setFont(self.__monoFont)
         lineEdit.returnPressed.connect(self.lineEditEnter)
@@ -412,6 +421,7 @@ class JSONitorWindow(QMainWindow):
         return lineEdit
 
     def createTextEditor(self):
+        logger.debug('Creating Text Editor')
 
 
         # ! Make instance of QSciScintilla class!
@@ -476,7 +486,8 @@ class JSONitorWindow(QMainWindow):
         # -----------
         # Margin 0 = Line nr margin
         tEditor.setMarginType(0, QsciScintilla.NumberMargin)
-        tEditor.setMarginWidth(0, "000")
+        tEditor.setMarginWidth(0, "0000")
+        tEditor.setMarginWidth(1, "0")
         tEditor.setMarginsForegroundColor(QColor("#ff888888"))
 
         # self.__lexer = JSONLexer(tEditor)
@@ -521,6 +532,11 @@ class JSONitorWindow(QMainWindow):
         # offset = tEditor.positionFromLineIndex(2, 5)
         # tEditor.SendScintilla(tEditor.SCI_ADDSELECTION, offset, offset)
 
+        tEditor.setMarginSensitivity(0, True)
+        tEditor.setMarginSensitivity(1, True)
+        tEditor.marginClicked.connect(self.marginLeftClick)
+        # tEditor.marginRightClicked.connect(self.__margin_right_clicked)
+
         if self.doStyling:
             tEditor.setStyleSheet(self.textEditStyleSheet)
 
@@ -552,8 +568,6 @@ class JSONitorWindow(QMainWindow):
 
 
 
-
-
         # color_palette = self.text_editor.palette()
         # color_palette.setColor(QPalette.Text, Qt.white)
         # color_palette.setColor(QPalette.Base, backgroundColor)
@@ -568,10 +582,10 @@ class JSONitorWindow(QMainWindow):
 
 
     def createTreeView(self):
+        logger.debug('Creating Tree View')
         tree = json.loads(self.tEditors[self.tabInd()].text())
 
         itemModel = StandardItemModel()
-        print(dir(itemModel))
         itemModel.populateTree(tree, itemModel.invisibleRootItem())
         self.itemModels.append(itemModel)
 
@@ -608,6 +622,7 @@ class JSONitorWindow(QMainWindow):
 
 
     def createPage(self, *contents):
+        logger.debug('Creating page')
         page = QWidget()
         vbox = QVBoxLayout()
         hbox = QHBoxLayout()
@@ -624,6 +639,7 @@ class JSONitorWindow(QMainWindow):
 
 
     def addPage(self):
+        logger.debug('Adding page')
         self.pages.append( self.createPage( ('v', self.createLineEdit()), ('h', self.createTextEditor()), ('h', self.createTreeView())) )
         tabName = os.path.splitext(os.path.basename(self.lineEdits[-1].text()))[0]
         self.tabs.addTab( self.pages[-1] , tabName )
@@ -631,6 +647,7 @@ class JSONitorWindow(QMainWindow):
 
 
     def closeWindow(self):
+        logger.debug('Closing JSONitor')
         sys.exit()
 
 
@@ -640,6 +657,7 @@ class JSONitorWindow(QMainWindow):
 
     def newFile(self):
         self.addPage()
+        self.statusMessage('New tab')
 
     def getFile(self):
 
@@ -683,6 +701,7 @@ class JSONitorWindow(QMainWindow):
             tabName = os.path.splitext(os.path.basename(self.lineEdits[self.tabInd()].text()))[0]
             self.tabs.setTabText(self.tabInd(), tabName)
             self.updateTreeViewFromText()
+            self.statusMessage('Opened file: {}'.format(self.currentFile))
 
 
     def saveFile(self, doDialog = 0):
@@ -723,6 +742,7 @@ class JSONitorWindow(QMainWindow):
             self.files[self.tabInd()] = self.currentFile
             tabName = os.path.splitext(os.path.basename(self.lineEdits[self.tabInd()].text()))[0]
             self.tabs.setTabText(self.tabInd(), tabName)
+            self.statusMessage('Saved file: {}'.format(filename))
         else:
             self.saveAs()
 
@@ -804,6 +824,7 @@ class JSONitorWindow(QMainWindow):
 
     def onBookmarkSet(self, ind):
         self.bookmarks[ind] = [self.files[self.tabInd()], self.tEditors[self.tabInd()].getCursorPosition()]
+        self.statusMessage('Set bookmark {}'.format(ind))
 
 
     def onBookmarkGo(self, ind):
@@ -812,6 +833,7 @@ class JSONitorWindow(QMainWindow):
             tabInd = self.files.index(filename)
             self.tabs.setCurrentIndex(tabInd)
             self.tEditors[tabInd].setCursorPosition(pos[0], pos[1])
+            self.statusMessage('Jumped to bookmark {}'.format(ind))
 
 
     ##############
@@ -823,6 +845,7 @@ class JSONitorWindow(QMainWindow):
         if ok:
             self.tEditors[self.tabInd()].setCursorPosition((pos-1), 0)
             self.tEditors[self.tabInd()].setFocus()
+            self.statusMessage('Jumped to line {}'.format(pos-1))
 
 
     ####################
@@ -839,13 +862,15 @@ class JSONitorWindow(QMainWindow):
         itemModel.clear()
         itemModel.populateTree(json.loads(self.tEditors[tabIndex].text()) , itemModel.invisibleRootItem())
         self.treeViews[tabIndex].expandAll()
+        self.statusMessage('Tree View updated based upon Text Editor')
 
 
     def updateTextFromTreeView(self):
         tabIndex = self.tabInd()
         itemModel = self.itemModels[tabIndex]
-        newJSON = json.dumps(jsc.getDictFromLists(itemModel.itemList()), indent=4, sort_keys=False)
+        newJSON = jsc.getJSONPretty(jsc.getDictFromLists(itemModel.itemList()))
         self.tEditors[tabIndex].setText(newJSON)
+        self.statusMessage('Text Editor updated based upon Tree View')
 
 
     def statusMessage(self, msg, dur=2):
@@ -881,6 +906,38 @@ class JSONitorWindow(QMainWindow):
                 self.openFile()
             else:
                 self.saveFile()
+
+
+    def marginLeftClick(self, margin_nr, line_nr, state):
+        print("Margin clicked (left mouse btn)!")
+        print(" -> margin_nr: " + str(margin_nr))
+        print(" -> line_nr:   " + str(line_nr))
+        print(" -> state:   " + str(state))
+        print("")
+
+        # if state == Qt.ControlModifier:
+        #     # Show green dot.
+        #     self.__editor.markerAdd(line_nr, 0)
+
+        # elif state == Qt.ShiftModifier:
+        #     # Show green arrow.
+        #     self.__editor.markerAdd(line_nr, 1)
+
+        # elif state == Qt.AltModifier:
+        #     # Show red dot.
+        #     self.__editor.markerAdd(line_nr, 2)
+
+        # else:
+        #     # Show red arrow.
+        #     self.__editor.markerAdd(line_nr, 3)
+
+    # ''''''
+
+    # def __margin_right_clicked(self, margin_nr, line_nr, state):
+    #     print("Margin clicked (right mouse btn)!")
+    #     print(" -> margin_nr: " + str(margin_nr))
+    #     print(" -> line_nr:   " + str(line_nr))
+    #     print("")
 
 
     #######

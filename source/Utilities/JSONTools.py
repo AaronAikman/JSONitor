@@ -12,8 +12,11 @@ class JSONConverter:
         return json.loads(j)
 
 
-    def getJSON(self, d):
-        return json.dumps(d)
+    def getJSONPretty(self, d):
+        return json.dumps(d, indent=4, sort_keys=False)
+
+    def getJSONCompact(self, d):
+        return json.dumps(d, indent=None, separators=(',', ':'), sort_keys=False)
 
 
     # def getElem(self):
@@ -50,7 +53,9 @@ class JSONConverter:
             return None
 
     def __filterValue(self, v):
-        # return json.JSONDecoder.decode(self, v)
+        # TODO remove
+        # jsd = json.JSONDecoder()
+        # return jsd.decode(jsd, v)
         if v in ['None', 'null']:
             return None
         elif v in ['True', 'true']:
