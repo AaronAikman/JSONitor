@@ -392,7 +392,7 @@
     <string>Update Text based upon Tree View</string>
    </property>
    <property name="shortcut">
-    <string>Ctrl+T</string>
+    <string>Ctrl+U</string>
    </property>
   </action>
   <action name="actionUpdate_Tree_View">
@@ -403,7 +403,7 @@
     <string>Update Tree View based upon Text</string>
    </property>
    <property name="shortcut">
-    <string>Ctrl+Y</string>
+    <string>Ctrl+I</string>
    </property>
   </action>
  </widget>

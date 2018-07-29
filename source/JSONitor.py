@@ -20,7 +20,7 @@ select Occurence
 select all Occurences
 Ctrl up and down to scroll
 ability to resize pane middle
-add line edit to panes for searching
+add line edit to panes for searching (itemModel.findItems)
 
 LINE EDIT
 Up down arrows to search through dir
@@ -34,7 +34,7 @@ format/Beautify
 Minimize/compact
 use margin clicks for reordering elements
 Add schema support?
-compensate for NaN, Infinity, -Infinity
+compensate for NaN, Infinity, -Infinity?
 
 TREE VIEW
 expand/collapse buttons
@@ -48,6 +48,9 @@ duplicate
 insert
 remove
 sort
+
+MORE
+Unit tests
 
 NOTE
 Shift Alt Drag to multi select
@@ -75,11 +78,15 @@ from PyQt5 import uic
 
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
+# from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtGui import *
 from PyQt5.Qsci import *
 
 import Utilities.JSONTools as jst
 import json
+import time
+# import threading
+# import types
 
 # TODO Move or strip down
 jsc = jst.JSONConverter()
@@ -151,6 +158,16 @@ class JSONitorWindow(QMainWindow):
         self.recentlyClosedFiles = []
         self.recentlyAccessedTabs = []
         self.bookmarks = {}
+
+        # Settings
+        self.autoUpdateViews = True
+        self.waitTime = 0.05
+        # self.sortKeys = False
+        # self.statusMessageDur = 2
+
+        # Threads
+        self.treeUpdateThread = None
+        self.textUpdateThread = None
 
 
         # p = w.palette()
@@ -427,7 +444,8 @@ class JSONitorWindow(QMainWindow):
         # ! Make instance of QSciScintilla class!
         # ----------------------------------------
         tEditor = QsciScintilla()
-        tEditor.setText('''{
+
+        tempText = '''{
     "glossary": {
         "title": "example glossary",
         "GlossDiv": {
@@ -452,7 +470,9 @@ class JSONitorWindow(QMainWindow):
         }
     }
 }
-    ''')
+    '''
+        tempText = '{"root": {"1": ["A", "B", "C"], "2": {"test": "thing", "asfd": 23, "tesfdsat": null, "2-1": ["G", "H", 0.0, 0, null], "2-2": [true, false, "L"]}, "3": ["D", "E", "F"]}, "extra": null}'
+        tEditor.setText(tempText)
         tEditor.setUtf8(True)             # Set encoding to UTF-8
         tEditor.setFont(self.__monoFont)
 
@@ -587,6 +607,7 @@ class JSONitorWindow(QMainWindow):
 
         itemModel = StandardItemModel()
         itemModel.populateTree(tree, itemModel.invisibleRootItem())
+        itemModel.itemChanged.connect(self.checkItemModel)
         self.itemModels.append(itemModel)
 
         treeView = QTreeView()
@@ -710,6 +731,7 @@ class JSONitorWindow(QMainWindow):
         filename = self.files[self.tabInd()]
         fpText = self.lineEdits[self.tabInd()].text()
         if doDialog:
+            # TODO set default to json
             filename = QFileDialog.getSaveFileName(self, 'Save File')[0]
             if filename:
                 self.currentFile = filename
@@ -848,6 +870,32 @@ class JSONitorWindow(QMainWindow):
             self.statusMessage('Jumped to line {}'.format(pos-1))
 
 
+    ###########
+    # Setters #
+    ###########
+
+    @pyqtSlot(str)
+    def setTextEditText(self, txt):
+        time.sleep(self.waitTime)
+        self.tEditors[self.tabInd()].setText(txt)
+
+
+    @pyqtSlot()
+    def itemModelClear(self):
+        self.itemModels[self.tabInd()].clear()
+
+
+    @pyqtSlot(dict)
+    def itemModelPopulate(self, dict):
+        time.sleep(self.waitTime)
+        itemModel = self.itemModels[self.tabInd()]
+        itemModel.populateTree(dict, itemModel.invisibleRootItem())
+
+
+    @pyqtSlot()
+    def treeViewExpandAll(self):
+        self.treeViews[self.tabInd()].expandAll()
+
     ####################
     # Helper Functions #
     ####################
@@ -859,23 +907,75 @@ class JSONitorWindow(QMainWindow):
     def updateTreeViewFromText(self):
         tabIndex = self.tabInd()
         itemModel = self.itemModels[tabIndex]
-        itemModel.clear()
-        itemModel.populateTree(json.loads(self.tEditors[tabIndex].text()) , itemModel.invisibleRootItem())
-        self.treeViews[tabIndex].expandAll()
+        treeView = self.treeViews[tabIndex]
+        textEdit = self.tEditors[tabIndex]
+        # if not self.treeUpdateThread:
+        self.treeViewUpdateThread = TreeViewUpdateThread(tabIndex, itemModel, treeView, textEdit)
+        self.treeViewUpdateThread.itemModelClearSignal.connect(self.itemModelClear)
+        self.treeViewUpdateThread.itemModelPopulateSignal.connect(self.itemModelPopulate)
+        self.treeViewUpdateThread.treeViewExpandAllSignal.connect(self.treeViewExpandAll)
+            # self.connect(self.treeViewUpdateThread, SIGNAL("finished()"), self.done)
+        self.treeViewUpdateThread.start()
+        # itemModel.clear()
+        # itemModel.populateTree(json.loads(self.tEditors[tabIndex].text()) , itemModel.invisibleRootItem())
+        # self.treeViews[tabIndex].expandAll()
         self.statusMessage('Tree View updated based upon Text Editor')
 
 
     def updateTextFromTreeView(self):
         tabIndex = self.tabInd()
         itemModel = self.itemModels[tabIndex]
-        newJSON = jsc.getJSONPretty(jsc.getDictFromLists(itemModel.itemList()))
-        self.tEditors[tabIndex].setText(newJSON)
+        treeView = self.treeViews[tabIndex]
+        textEdit = self.tEditors[tabIndex]
+        # if not self.textUpdateThread:
+        self.textUpdateThread = TextUpdateThread(tabIndex, itemModel, treeView, textEdit)
+        self.textUpdateThread.textEditSignal.connect(self.setTextEditText)
+        # print(dir(self.textUpdateThread.signal))
+        # self.connect(self.textUpdateThread, self.textUpdateThread.signal, self.setTextEditText)
+        # print(dir(self.textUpdateThread.signal))
+        self.textUpdateThread.start()
+        # print(itemModel.itemList())
+        # newJSON = jsc.getJSONPretty(jsc.getDictFromLists(itemModel.itemList()))
+        # self.tEditors[tabIndex].setText(newJSON)
+        # treeView.expandAll()
         self.statusMessage('Text Editor updated based upon Tree View')
+        self.updateTreeViewFromText()
+
+        # self.waitThreadThenFunc(0.05, self.updateTreeViewFromText)
+
+
+    def checkItemModel(self, itm):
+        # tabIndex = self.tabInd()
+        if self.autoUpdateViews:
+            # treeView = self.treeViews[tabIndex]
+            # treeView.updateGeometries()
+            # time.sleep(1)
+
+            # self.waitThreadThenFunc(0.05, self.updateTextFromTreeView)
+            self.updateTextFromTreeView()
+        # itemModel = self.itemModels[tabIndex]
+        # itemList = itemModel.itemList()
+        # print(itemList)
+        # itemDict = jsc.getDictFromLists(itemList)
+        # print(itemDict)
+
+
+    # def waitThreadThenFunc(self, dur, f):
+    #     t = threading.Thread(target=self.callFunc, args=(dur, f))
+    #     t.start()
+
+
+    # def callFunc(self, dur, f):
+    #     time.sleep(dur)
+    #     f()
+
+    # def done(self):
+    #     QMessageBox.information(self, "Done!", "Done fetching posts!")
 
 
     def statusMessage(self, msg, dur=2):
         dur *= 1000
-        self.statusbar.showMessage(msg, dur)
+        self.statusbar.showMessage(str(msg), dur)
         logger.info(msg)
 
 
@@ -992,33 +1092,149 @@ class JSONitorWindow(QMainWindow):
     # else:
     #     #can not write there
 
+
+# class YourThreadName(QThread):
+
+#     def __init__(self):
+#         QThread.__init__(self)
+
+#     def __del__(self):
+#         self.wait()
+
+#     def run(self):
+#         # your logic here
+
+
+class TreeViewUpdateThread(QThread):
+    itemModelClearSignal = pyqtSignal()
+    itemModelPopulateSignal = pyqtSignal(dict)
+    treeViewExpandAllSignal = pyqtSignal()
+
+    def __init__(self, tabIndex, itemModel, treeView, textEdit, waitTime=0.05):
+        QThread.__init__(self)
+        # self.tabIndex = tabIndex
+        # self.itemModel = itemModel
+        # self.treeView = treeView
+        self.textEdit = textEdit
+        self.waitTime = waitTime
+
+    def __del__(self):
+        self.wait()
+
+    def run(self):
+        # pass
+        time.sleep(self.waitTime)
+        self.itemModelClearSignal.emit()
+        self.itemModelPopulateSignal.emit(json.loads(self.textEdit.text()))
+        self.treeViewExpandAllSignal.emit()
+        # self.itemModel.clear()
+        # self.itemModel.populateTree(json.loads(self.textEdit.text()) , self.itemModel.invisibleRootItem())
+        # self.treeView.expandAll()
+
+
+class TextUpdateThread(QThread):
+    textEditSignal = pyqtSignal(str)
+
+    def __init__(self, tabIndex, itemModel, treeView, textEdit, waitTime = 0.05):
+
+        QThread.__init__(self)
+        # super().__init__()
+        self.tabIndex = tabIndex
+        self.itemModel = itemModel
+        self.treeView = treeView
+        self.textEdit = textEdit
+        self.waitTime = waitTime
+
+        # self.textEditFunc = textEditFunc
+        # self.textEditSignal.connect(textEditFunc)
+
+    def __del__(self):
+        self.wait()
+
+    def run(self):
+        time.sleep(self.waitTime)
+        # while not self.stopped.wait(0.02):
+            # self.update.emit()
+        newJSON = jsc.getJSONPretty(jsc.getDictFromLists(self.itemModel.itemList()))
+        # self.textEditFunc(newJSON)
+        self.textEditSignal.emit(newJSON)
+        # self.emit(self.signal, newJSON)
+        # self.textEdit.setText(newJSON)
+        # self.treeView.expandAll()
+
+
+        # tabIndex = self.tabInd()
+        # itemModel = self.itemModels[tabIndex]
+        # self.itemModel.clear()
+        # self.itemModel.populateTree(json.loads(self.tEditors[tabIndex].text()) , self.itemModel.invisibleRootItem())
+        # self.treeView.expandAll()
+        # self.statusMessage('Tree View updated based upon Text Editor')
+
+
 class StandardItemModel(QStandardItemModel):
     def __init__(self, parent = None):
         super(StandardItemModel, self).__init__(parent)
+        self.__fadeFont = QFont('DejaVu Sans Mono')
+        # self.__fadeFont.setPointSize(8)
+        self.__fadeFont.setItalic(True)
 
-    def itemList(self, parent = QModelIndex()):
+    def itemList(self, parent=QModelIndex(), col=0):
         items = []
         for row in range(self.rowCount(parent)):
-            idx = self.index(row, 0, parent)
-            items.append(self.data(idx))
-            if self.hasChildren(idx):
-                items.append(self.itemList(idx))
+            ind = self.index(row, 0, parent)
+            # To test for array elements
+            isArrEl = not self.itemFromIndex(ind).isEditable()
+            items.append((isArrEl, self.data(ind)))
+            if self.hasChildren(ind):
+                items.append(self.itemList(ind, col=(col+1)))
         return items
 
 
     def populateTree(self, children, parent, sort=False):
         if sort:
             children = sorted(children)
+        # print(children)
         if isinstance(children, (dict, list)):
-            for child in children:
-                child_item = QStandardItem(str(child))
-                parent.appendRow(child_item)
-                # if isinstance(children, types.DictType):
+            for ind, child in enumerate(children):
+                # Handling lists
+                if isinstance(children, list) and any([isinstance(x, dict) for x in children]): # TODO optimize
+                    # print('list', child)
+                    childItem = QStandardItem(str(ind))
+                    childItem.setEditable(False)
+                    childItem.setFont(self.__fadeFont)
+                    # print(childItem.isEditable())
+                    # TODO use setIcon to show array
+                    parent.appendRow(childItem)
+                    self.populateTree(child, childItem)
+                else:
+                    # print('dict or list', child)
+                    childItem = QStandardItem(str(child))
+                    # childItem = QStandardItem(child)
+                    parent.appendRow(childItem)
+                    # if isinstance(children, types.DictType):
+                    # print(type(children), children)
                 if isinstance(children, dict):
-                    self.populateTree(children[child], child_item)
+                    # print(children[child])
+                    # print('dict', children[child])
+                    self.populateTree(children[child], childItem)
         else:
-            child_item = QStandardItem(str(children))
-            parent.appendRow(child_item)
+            # print(type(children), children)
+            childItem = QStandardItem(str(children))
+            parent.appendRow(childItem)
+
+    # def _populateTree(self, children, parent, sort=False):
+    #     if sort:
+    #         children = sorted(children)
+    #     if isinstance(children, (dict, list)):
+    #         for child in children:
+    #             childItem = QStandardItem(str(child))
+    #             parent.appendRow(childItem)
+    #             # if isinstance(children, types.DictType):
+    #             if isinstance(children, dict):
+    #                 self._populateTree(children[child], childItem)
+    #     else:
+    #         childItem = QStandardItem(str(children))
+    #         parent.appendRow(childItem)
 
 
 

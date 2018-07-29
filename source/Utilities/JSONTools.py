@@ -6,6 +6,8 @@ class JSONConverter:
         if JSONText:
             self.__content = JSONText
         self.__dict = self.getDict(JSONText) if JSONText else None
+        self.sortKeys = False
+        self.allowNan = False # TODO fix?
 
 
     def getDict(self, j):
@@ -13,10 +15,10 @@ class JSONConverter:
 
 
     def getJSONPretty(self, d):
-        return json.dumps(d, indent=4, sort_keys=False)
+        return json.dumps(d, indent=4, sort_keys=self.sortKeys, allow_nan=False)
 
     def getJSONCompact(self, d):
-        return json.dumps(d, indent=None, separators=(',', ':'), sort_keys=False)
+        return json.dumps(d, indent=None, separators=(',', ':'), sort_keys=self.sortKeys, allow_nan=False)
 
 
     # def getElem(self):
@@ -71,6 +73,9 @@ class JSONConverter:
                 # String
                 return v
 
+    def __splitListAlternating(self, arr):
+        return (arr[::2], arr[1::2])
+
     def getDictFromLists(self, arr):
         ''' Converts list of lists produced by qt.itemList to a dict
         '''
@@ -79,18 +84,23 @@ class JSONConverter:
             for i in range(len(arr)):
                 # Handling potential key, vals
                 if not i % 2:
-                    prim, sec = arr[i], arr[i+1]
-                    if isinstance(sec, list): # TODO figure out if this is needed
-                        # if list has only one element, then process confirmed val accordingly
-                        if len(sec) == 1:
-                            dic[prim] = self.__filterValue(sec[0])
-                        elif isinstance(sec[1], list):
-                            # continue to search for dicts
-                            dic[prim] = self.getDictFromLists(sec)
-                        else:
-                            dic[prim] = [self.__filterValue(x) for x in sec]
+                    primTup, sec = arr[i], arr[i+1]
+                    primIsArrEl, prim = primTup
+                    if primIsArrEl:
+                        _, sec = self.__splitListAlternating(arr)
+                        return [self.getDictFromLists(i) for i in sec]
                     else:
-                        dic[prim] = self.__filterValue(sec)
+                        if isinstance(sec, list): # TODO figure out if this is needed
+                            # if list has only one element, then process confirmed val accordingly
+                            if len(sec) == 1:
+                                dic[prim] = self.__filterValue(sec[0][1])
+                            elif isinstance(sec[1], list):
+                                # continue to search for dicts
+                                dic[prim] = self.getDictFromLists(sec)
+                            else:
+                                dic[prim] = [self.__filterValue(y) for x,y in sec]
+                        else:
+                            dic[prim] = self.__filterValue(sec[1])
         else:
             # if not a set of pairs, return list immediately after checking values
             return [self.__filterValue(x) for x in arr]
