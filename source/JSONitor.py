@@ -120,17 +120,13 @@ jsc = jst.JSONConverter(logger)
 
 class JSONitorWindow(QMainWindow):
     def __init__(self):
-        # super(JSONitorWindow, self).__init__()
         super().__init__()
-        uiFile = os.path.dirname(os.path.realpath(__file__)) + '\\JSONitor.ui'
-        logger.debug('UI file is: {}'.format(uiFile))
-        uic.loadUi(uiFile, self)
 
         self.currentFile = None
 
         # Info
         self.pages = []
-        self.tEditors = []
+        self.textEditors = []
         self.lineEdits = []
         self.files = []
         self.itemModels = []
@@ -142,6 +138,7 @@ class JSONitorWindow(QMainWindow):
         self.bookmarks = {}
 
         # Settings
+        self.title = 'JSONitor (JSON Editor by Aaron Aikman)'
         self.autoUpdateViews = False
         self.autoCompleteBraces = True
         self.waitTime = 0.05
@@ -150,7 +147,19 @@ class JSONitorWindow(QMainWindow):
         self.statusMessageDur = 2
         self.doStyling = False
 
-        # TODO move to initUI?
+
+        self.initUI()
+
+
+    def initUI(self):
+        logger.debug('Initializing UI')
+
+
+        # UI File
+        uiFile = os.path.dirname(os.path.realpath(__file__)) + '\\JSONitor.ui'
+        logger.debug('UI file is: {}'.format(uiFile))
+        uic.loadUi(uiFile, self)
+
         # Actions
         self.actionOpen.triggered.connect(self.getFile)
         self.actionSave.triggered.connect(self.saveFile)
@@ -282,12 +291,6 @@ class JSONitorWindow(QMainWindow):
         self.menuGo_Bookmark.addAction(self.actionGo_Bookmark_10)
         self.actionGo_Bookmark_10.triggered.connect(lambda: self.onBookmarkGo(10))
 
-        self.initUI()
-        self.show()
-
-    def initUI(self):
-        logger.debug('Initializing UI')
-        self.title = 'JSONitor (JSON Editor by Aaron Aikman)'
         self.setWindowTitle(self.title)
 
         # Colors
@@ -326,12 +329,12 @@ class JSONitorWindow(QMainWindow):
         # Add tabs to widget
         self.gridLayout.addWidget(self.tabs)
 
-        # Deleting Text Edit until I decide if I want it back
+        # Deleting temp widgets from Designer
         self.gridLayout.removeWidget(self.textEdit)
         self.textEdit.deleteLater()
         self.textEdit = None
 
-        # Deleting Line Edit until I decide if I want it back
+        # Deleting temp widgets from Designer
         self.gridLayout.removeWidget(self.filepathLineEdit)
         self.filepathLineEdit.deleteLater()
         self.filepathLineEdit = None
@@ -342,6 +345,8 @@ class JSONitorWindow(QMainWindow):
         self.statusbar.addPermanentWidget(self.lineColLabel)
 
         self.addPage()
+
+        self.show()
 
     ###################
     # Widget / Window #
@@ -365,7 +370,7 @@ class JSONitorWindow(QMainWindow):
         logger.debug('Creating Text Editor')
 
         # Instance
-        tEditor = QsciScintilla()
+        textEditor = QsciScintilla()
 
         # TODO Fix temp text
         tempText = '''{
@@ -395,79 +400,79 @@ class JSONitorWindow(QMainWindow):
 }
     '''
         tempText = '{"root": {"1": ["A", "B", "C"], "2": {"test": "thing", "asfd": 23, "tesfdsat": null, "2-1": ["G", "H", 0.0, 0, null], "2-2": [true, false, "L"]}, "3": ["D", "E", "F"]}, "extra": null}'
-        tEditor.setText(tempText)
-        tEditor.setUtf8(True)             # Set encoding to UTF-8
-        tEditor.setFont(self.__monoFont)
+        textEditor.setText(tempText)
+        textEditor.setUtf8(True)             # Set encoding to UTF-8
+        textEditor.setFont(self.__monoFont)
 
         # Text wrapping
-        tEditor.setWrapMode(QsciScintilla.WrapWord)
-        tEditor.setWrapVisualFlags(QsciScintilla.WrapFlagByText)
-        tEditor.setWrapIndentMode(QsciScintilla.WrapIndentIndented)
+        textEditor.setWrapMode(QsciScintilla.WrapWord)
+        textEditor.setWrapVisualFlags(QsciScintilla.WrapFlagByText)
+        textEditor.setWrapIndentMode(QsciScintilla.WrapIndentIndented)
 
         # End-of-line mode
-        tEditor.setEolMode(QsciScintilla.EolWindows)
-        tEditor.setEolVisibility(False)
+        textEditor.setEolMode(QsciScintilla.EolWindows)
+        textEditor.setEolVisibility(False)
 
         # Indentation
-        tEditor.setIndentationsUseTabs(False)
-        tEditor.setTabWidth(4)
-        tEditor.setIndentationGuides(True)
-        tEditor.setTabIndents(True)
-        tEditor.setAutoIndent(True)
+        textEditor.setIndentationsUseTabs(False)
+        textEditor.setTabWidth(4)
+        textEditor.setIndentationGuides(True)
+        textEditor.setTabIndents(True)
+        textEditor.setAutoIndent(True)
 
         # Caret
-        tEditor.setCaretForegroundColor(QColor("#ff0000ff"))
-        tEditor.setCaretLineVisible(True)
-        tEditor.setCaretLineBackgroundColor(QColor("#1f0000ff"))
-        tEditor.setCaretWidth(2)
+        textEditor.setCaretForegroundColor(QColor("#ff0000ff"))
+        textEditor.setCaretLineVisible(True)
+        textEditor.setCaretLineBackgroundColor(QColor("#1f0000ff"))
+        textEditor.setCaretWidth(2)
 
         # Margins
-        tEditor.setMarginType(0, QsciScintilla.NumberMargin)
-        tEditor.setMarginWidth(0, "0000")
-        tEditor.setMarginWidth(1, "0")
-        tEditor.setMarginsForegroundColor(QColor("#ff888888"))
+        textEditor.setMarginType(0, QsciScintilla.NumberMargin)
+        textEditor.setMarginWidth(0, "0000")
+        textEditor.setMarginWidth(1, "0")
+        textEditor.setMarginsForegroundColor(QColor("#ff888888"))
 
         # Lexer
-        self.lexer = QsciLexerJSON(tEditor)
+        self.lexer = QsciLexerJSON(textEditor)
         self.lexer.setDefaultFont(self.__monoFont)
-        tEditor.setFolding(True)
+        textEditor.setFolding(True)
 
-        # self.lexer = QsciLexerXML(tEditor)
-        # self.lexer = QsciLexerYAML(tEditor)
+        # self.lexer = QsciLexerXML(textEditor)
+        # self.lexer = QsciLexerYAML(textEditor)
 
-        tEditor.setAutoCompletionSource(QsciScintilla.AcsDocument)
-        tEditor.setAutoCompletionThreshold(3)
-        tEditor.setAutoCompletionCaseSensitivity(False)
+        textEditor.setAutoCompletionSource(QsciScintilla.AcsDocument)
+        textEditor.setAutoCompletionThreshold(3)
+        textEditor.setAutoCompletionCaseSensitivity(False)
 
-        tEditor.setLexer(self.lexer)
+        textEditor.setLexer(self.lexer)
 
-        # tEditor.setFont(self.__monoFont)
+        # textEditor.setFont(self.__monoFont)
 
-        tEditor.textChanged.connect(self.textEditChanged)
-        tEditor.cursorPositionChanged.connect(self.updateLineColInfo)
+        textEditor.textChanged.connect(self.textEditChanged)
+        textEditor.cursorPositionChanged.connect(self.updateLineColInfo)
 
         # Drops
-        tEditor.setAcceptDrops(True)
+        textEditor.setAcceptDrops(True)
 
         # Multiline Editing
-        tEditor.SendScintilla(tEditor.SCI_SETADDITIONALSELECTIONTYPING, 1)
+        textEditor.SendScintilla(textEditor.SCI_SETADDITIONALSELECTIONTYPING, 1)
 
-        tEditor.setMarginSensitivity(0, True)
-        tEditor.setMarginSensitivity(1, True)
-        tEditor.marginClicked.connect(self.marginLeftClick)
+        textEditor.setMarginSensitivity(0, True)
+        textEditor.setMarginSensitivity(1, True)
+        textEditor.marginClicked.connect(self.marginLeftClick)
 
         if self.doStyling:
-            tEditor.setStyleSheet(self.textEditStyleSheet)
+            textEditor.setStyleSheet(self.textEditStyleSheet)
 
-        self.tEditors.append(tEditor)
+        self.textEditors.append(textEditor)
 
-        return tEditor
+        return textEditor
 
 
     def createTreeView(self):
         logger.debug('Creating Tree View')
-        # tree = json.loads(self.tEditors[self.tabInd()].text())
-        sampleJSON = jsc.getDict(self.tEditors[self.tabInd()].text())
+        # tree = json.loads(self.textEditors[self.tabInd()].text())
+        sampleJSON = jsc.getDict(self.textEditors[self.tabInd()].text())
 
         itemModel = StandardItemModel()
         if sampleJSON:
@@ -512,10 +517,14 @@ class JSONitorWindow(QMainWindow):
         tabName = os.path.splitext(os.path.basename(self.lineEdits[-1].text()))[0]
         self.tabs.addTab( self.pages[-1] , tabName )
         self.tabs.setCurrentIndex( len(self.pages)-1 )
+        self.textEditors[self.tabInd()].setFocus()
 
 
     def closeWindow(self):
         logger.debug('Closing JSONitor')
+        if self.tabs.tabText(self.tabInd())[-1] == '*':
+            if self.quickPrompt('Save?', 'Do you want to save before closing JSONitor?'):
+                self.saveFile()
         sys.exit()
 
 
@@ -555,7 +564,7 @@ class JSONitorWindow(QMainWindow):
             self.lineEdits[self.tabInd()].setText(self.currentFile)
             with open(self.currentFile, 'r', encoding='utf-8-sig') as f:
                 data = f.read()
-                self.tEditors[self.tabInd()].setText(data)
+                self.textEditors[self.tabInd()].setText(data)
 
             self.files[self.tabInd()] = self.currentFile
             logger.debug('Open Files: {}'.format(self.files))
@@ -569,7 +578,6 @@ class JSONitorWindow(QMainWindow):
 
     def saveFile(self, doDialog = 0):
         # TODO fix infinite loop if you cancel save dialog
-        # filename = self.currentFile
         filename = self.files[self.tabInd()]
         fpText = self.lineEdits[self.tabInd()].text()
         if doDialog:
@@ -593,8 +601,7 @@ class JSONitorWindow(QMainWindow):
                     self.lineEdits[self.tabInd()].setText(self.currentFile)
 
         if filename:
-            # newText = str(self.textEdit.toPlainText())
-            newText = str(self.tEditors[self.tabInd()].text())
+            newText = str(self.textEditors[self.tabInd()].text())
             if not os.path.exists(os.path.dirname(filename)):
                 os.makedirs(os.path.dirname(filename))
                 # TODO add try in case can't make dir
@@ -629,7 +636,7 @@ class JSONitorWindow(QMainWindow):
         self.tabs.removeTab(tabIndex)
 
         del self.pages[tabIndex]
-        del self.tEditors[tabIndex]
+        del self.textEditors[tabIndex]
         del self.lineEdits[tabIndex]
         del self.files[tabIndex]
         del self.itemModels[tabIndex]
@@ -687,7 +694,7 @@ class JSONitorWindow(QMainWindow):
     #############
 
     def onBookmarkSet(self, ind):
-        self.bookmarks[ind] = [self.files[self.tabInd()], self.tEditors[self.tabInd()].getCursorPosition()]
+        self.bookmarks[ind] = [self.files[self.tabInd()], self.textEditors[self.tabInd()].getCursorPosition()]
         self.statusMessage('Set bookmark {}'.format(ind))
 
 
@@ -696,7 +703,7 @@ class JSONitorWindow(QMainWindow):
         if filename in self.files:
             tabInd = self.files.index(filename)
             self.tabs.setCurrentIndex(tabInd)
-            self.tEditors[tabInd].setCursorPosition(pos[0], pos[1])
+            self.textEditors[tabInd].setCursorPosition(pos[0], pos[1])
             self.statusMessage('Jumped to bookmark {}'.format(ind))
 
 
@@ -707,8 +714,8 @@ class JSONitorWindow(QMainWindow):
     def goToLine(self):
         pos, ok = QInputDialog.getInt(self,"Go to Line","Enter line number")
         if ok:
-            self.tEditors[self.tabInd()].setCursorPosition((pos-1), 0)
-            self.tEditors[self.tabInd()].setFocus()
+            self.textEditors[self.tabInd()].setCursorPosition((pos-1), 0)
+            self.textEditors[self.tabInd()].setFocus()
             self.statusMessage('Jumped to line {}'.format(pos-1))
 
 
@@ -719,12 +726,12 @@ class JSONitorWindow(QMainWindow):
     @pyqtSlot(str)
     def setTextEditText(self, txt):
         logger.debug('Text to populate Text View with is {}'.format(txt))
-        self.tEditors[self.tabInd()].setText(txt)
+        self.textEditors[self.tabInd()].setText(txt)
 
     @pyqtSlot(tuple)
     def setTextEditCursorPos(self, pos):
         logger.debug('Position to set text cursor is {}'.format(pos))
-        self.tEditors[self.tabInd()].setCursorPosition(pos[0], pos[1])
+        self.textEditors[self.tabInd()].setCursorPosition(pos[0], pos[1])
 
 
     @pyqtSlot()
@@ -755,7 +762,7 @@ class JSONitorWindow(QMainWindow):
 
     def updateTreeViewFromText(self):
         tabIndex = self.tabInd()
-        textEdit = self.tEditors[tabIndex]
+        textEdit = self.textEditors[tabIndex]
         t = TreeViewUpdateThread(textEdit)
         t.itemModelClearSignal.connect(self.itemModelClear)
         t.itemModelPopulateSignal.connect(self.itemModelPopulate)
@@ -813,7 +820,7 @@ class JSONitorWindow(QMainWindow):
 
         # AutoTyping
         if self.autoCompleteBraces:
-            textEdit = self.tEditors[self.tabInd()]
+            textEdit = self.textEditors[self.tabInd()]
             p = textEdit.getCursorPosition()
             text = textEdit.text()
             lastTypedChar = ''
@@ -863,7 +870,7 @@ class JSONitorWindow(QMainWindow):
 
 
     def updateLineColInfo(self):
-        cursorLine, cursorCol = self.tEditors[self.tabInd()].getCursorPosition()
+        cursorLine, cursorCol = self.textEditors[self.tabInd()].getCursorPosition()
         self.lineColLabel.setText('Ln {}, Cl {}'.format(cursorLine + 1, cursorCol + 1))
 
 
