@@ -1,23 +1,37 @@
 import json
 
 class JSONConverter:
-    def __init__(self, JSONText=None):
+    def __init__(self, logger=None, JSONText=None):
         super().__init__()
         if JSONText:
             self.__content = JSONText
         self.__dict = self.getDict(JSONText) if JSONText else None
         self.sortKeys = False
-        self.allowNan = False # TODO fix?
+        # self.allowNan = False # TODO fix?
+        self.logger = logger
 
 
     def getDict(self, j):
-        return json.loads(j)
+        """ Returns dict if json is valid, else logs
+        """
+        try:
+            jResult = json.loads(j)
+        except ValueError as vErr:
+            if self.logger:
+                self.logger.warn('Cannot update Tree View. JSON Invalid.  Error: {} Input: {}'.format(vErr, j))
+            print('WARNING: Cannot update Tree View. JSON Invalid. See log for details.')
+            return False
+        return jResult
 
 
     def getJSONPretty(self, d):
+        """ Return JSON that is pretty printed
+        """
         return json.dumps(d, indent=4, sort_keys=self.sortKeys, allow_nan=False)
 
     def getJSONCompact(self, d):
+        """ Returns JSON with no whitespace
+        """
         return json.dumps(d, indent=None, separators=(',', ':'), sort_keys=self.sortKeys, allow_nan=False)
 
 
@@ -55,9 +69,10 @@ class JSONConverter:
             return None
 
     def __filterValue(self, v):
-        # TODO remove
-        # jsd = json.JSONDecoder()
-        # return jsd.decode(jsd, v)
+        """ Converts potential json strings to dict values
+        """
+        if isinstance(v, tuple):
+            _, v = v
         if v in ['None', 'null']:
             return None
         elif v in ['True', 'true']:
@@ -103,37 +118,8 @@ class JSONConverter:
                             dic[prim] = self.__filterValue(sec[1])
         else:
             # if not a set of pairs, return list immediately after checking values
+            if len(arr) == 1:
+                return self.__filterValue(arr[0][1])
             return [self.__filterValue(x) for x in arr]
         return dic
 
-
-#Testing
-
-# testJSON = ('''{
-#     "glossary": {
-#         "title": "example glossary",
-#         "GlossDiv": {
-#         "title": "S",
-#         "GlossList": {
-#             "GlossEntry": {
-#             "ID": "SGML",
-#             "SortAs": "SGML",
-#             "GlossTerm": "Standard Generalized Markup Language",
-#             "Acronym": "SGML",
-#             "Abbrev": "ISO 8879:1986",
-#             "GlossDef": {
-#                 "para": "A meta-markup language, used to create markup languages such as DocBook.",
-#                 "GlossSeeAlso": [
-#                 "GML",
-#                 "XML"
-#                 ]
-#             },
-#             "GlossSee": "markup"
-#             }
-#         }
-#         }
-#     }
-# }
-#     ''')
-# j = JSONAsset(testJSON)
-# print(j._getAllKeys(j.getDict()))

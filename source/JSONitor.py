@@ -6,13 +6,11 @@ TEXT EDIT
 add drag and drop
 copy/paste
 recently closed files
-add syntax highlighting
 add comparison
 add an About
-logger
 save temp files/autosave
 Use json file for ui colors/settings
-find and replace
+*find and replace
 Undo stack
 copy to clipboard
 Feedback/email
@@ -20,15 +18,15 @@ select Occurence
 select all Occurences
 Ctrl up and down to scroll
 ability to resize pane middle
-add line edit to panes for searching (itemModel.findItems)
+*add line edit to panes for searching (itemModel.findItems)
+close window, ask save
 
 LINE EDIT
 Up down arrows to search through dir
 left right arrows to go up or down folders
 
 JSON
-*fix decoder/filterValue?
-conversion to (xml, csv, yaml)
+conversion to (xml, csv, yaml)?
 *validation
 format/Beautify
 Minimize/compact
@@ -37,12 +35,10 @@ Add schema support?
 compensate for NaN, Infinity, -Infinity?
 
 TREE VIEW
+*validation
 expand/collapse buttons
 add lengths and indexing
-json to tree
-tree to json
 arrow buttons for conversion
-reorder
 edit
 duplicate
 insert
@@ -50,7 +46,7 @@ remove
 sort
 
 MORE
-Unit tests
+Unit tests (open files, store compact json, convert to tree view and back, check against compact json)
 
 NOTE
 Shift Alt Drag to multi select
@@ -88,14 +84,14 @@ import time
 # import threading
 # import types
 
-# TODO Move or strip down
-jsc = jst.JSONConverter()
+
 
 # import functools
 
 ################
 # Logger Setup #
 ################
+
 import logging
 import getpass
 
@@ -131,6 +127,11 @@ logger.addHandler(fh)
 # logger.propagate=1
 logger.info('{} Initiated'.format(appTitle))
 
+##################
+# JSON CONVERTER #
+##################
+
+jsc = jst.JSONConverter(logger)
 
 ######
 # UI #
@@ -160,7 +161,8 @@ class JSONitorWindow(QMainWindow):
         self.bookmarks = {}
 
         # Settings
-        self.autoUpdateViews = True
+        self.autoUpdateViews = False
+        self.autoCompleteBraces = True
         self.waitTime = 0.05
         # self.sortKeys = False
         # self.statusMessageDur = 2
@@ -319,7 +321,7 @@ class JSONitorWindow(QMainWindow):
         # self.actionExit.triggered.connect(self.CloseSC)
 
         # self.filepathLineEdit.dropEvent.connect(self.lineEditEnter)
-        # self.textEdit.textChanged.connect(self.asteriskTitle)
+        # self.textEdit.textChanged.connect(self.textEditChanged)
         # self.tabLayoutList = list(range(10))
         self.initUI()
         self.show()
@@ -532,7 +534,7 @@ class JSONitorWindow(QMainWindow):
 
         # tEditor.setFont(self.__monoFont)
 
-        tEditor.textChanged.connect(self.asteriskTitle)
+        tEditor.textChanged.connect(self.textEditChanged)
         tEditor.cursorPositionChanged.connect(self.updateLineColInfo)
 
 
@@ -603,11 +605,13 @@ class JSONitorWindow(QMainWindow):
 
     def createTreeView(self):
         logger.debug('Creating Tree View')
-        tree = json.loads(self.tEditors[self.tabInd()].text())
+        # tree = json.loads(self.tEditors[self.tabInd()].text())
+        sampleJSON = jsc.getDict(self.tEditors[self.tabInd()].text())
 
         itemModel = StandardItemModel()
-        itemModel.populateTree(tree, itemModel.invisibleRootItem())
-        itemModel.itemChanged.connect(self.checkItemModel)
+        if sampleJSON:
+            itemModel.populateTree(sampleJSON, itemModel.invisibleRootItem())
+        itemModel.itemChanged.connect(self.treeViewChanged)
         self.itemModels.append(itemModel)
 
         treeView = QTreeView()
@@ -876,24 +880,33 @@ class JSONitorWindow(QMainWindow):
 
     @pyqtSlot(str)
     def setTextEditText(self, txt):
-        time.sleep(self.waitTime)
+        # time.sleep(self.waitTime)
+        logger.debug('Text to populate Text View with is {}'.format(txt))
         self.tEditors[self.tabInd()].setText(txt)
+
+    @pyqtSlot(tuple)
+    def setTextEditCursorPos(self, pos):
+        # time.sleep(self.waitTime)
+        logger.debug('Position to set text cursor is {}'.format(pos))
+        self.tEditors[self.tabInd()].setCursorPosition(pos[0], pos[1])
 
 
     @pyqtSlot()
     def itemModelClear(self):
+        logger.debug('Clearing Item Model')
         self.itemModels[self.tabInd()].clear()
 
 
     @pyqtSlot(dict)
-    def itemModelPopulate(self, dict):
-        time.sleep(self.waitTime)
+    def itemModelPopulate(self, dic):
+        logger.debug('Dict to populate Tree View with is {}'.format(dic))
         itemModel = self.itemModels[self.tabInd()]
-        itemModel.populateTree(dict, itemModel.invisibleRootItem())
+        itemModel.populateTree(dic, itemModel.invisibleRootItem())
 
 
     @pyqtSlot()
     def treeViewExpandAll(self):
+        logger.debug('Expanding Tree View')
         self.treeViews[self.tabInd()].expandAll()
 
     ####################
@@ -906,30 +919,32 @@ class JSONitorWindow(QMainWindow):
 
     def updateTreeViewFromText(self):
         tabIndex = self.tabInd()
-        itemModel = self.itemModels[tabIndex]
-        treeView = self.treeViews[tabIndex]
+        # itemModel = self.itemModels[tabIndex]
+        # treeView = self.treeViews[tabIndex]
         textEdit = self.tEditors[tabIndex]
         # if not self.treeUpdateThread:
-        self.treeViewUpdateThread = TreeViewUpdateThread(tabIndex, itemModel, treeView, textEdit)
+        self.treeViewUpdateThread = TreeViewUpdateThread(textEdit)
         self.treeViewUpdateThread.itemModelClearSignal.connect(self.itemModelClear)
         self.treeViewUpdateThread.itemModelPopulateSignal.connect(self.itemModelPopulate)
         self.treeViewUpdateThread.treeViewExpandAllSignal.connect(self.treeViewExpandAll)
+        self.treeViewUpdateThread.statusSignal.connect(self.statusMessage)
             # self.connect(self.treeViewUpdateThread, SIGNAL("finished()"), self.done)
         self.treeViewUpdateThread.start()
         # itemModel.clear()
         # itemModel.populateTree(json.loads(self.tEditors[tabIndex].text()) , itemModel.invisibleRootItem())
         # self.treeViews[tabIndex].expandAll()
-        self.statusMessage('Tree View updated based upon Text Editor')
+        # self.statusMessage('Tree View updated based upon Text Editor')
 
 
     def updateTextFromTreeView(self):
         tabIndex = self.tabInd()
         itemModel = self.itemModels[tabIndex]
-        treeView = self.treeViews[tabIndex]
-        textEdit = self.tEditors[tabIndex]
+        # treeView = self.treeViews[tabIndex]
+        # textEdit = self.tEditors[tabIndex]
         # if not self.textUpdateThread:
-        self.textUpdateThread = TextUpdateThread(tabIndex, itemModel, treeView, textEdit)
+        self.textUpdateThread = TextUpdateThread(itemModel)
         self.textUpdateThread.textEditSignal.connect(self.setTextEditText)
+        self.textUpdateThread.statusSignal.connect(self.statusMessage)
         # print(dir(self.textUpdateThread.signal))
         # self.connect(self.textUpdateThread, self.textUpdateThread.signal, self.setTextEditText)
         # print(dir(self.textUpdateThread.signal))
@@ -938,13 +953,19 @@ class JSONitorWindow(QMainWindow):
         # newJSON = jsc.getJSONPretty(jsc.getDictFromLists(itemModel.itemList()))
         # self.tEditors[tabIndex].setText(newJSON)
         # treeView.expandAll()
-        self.statusMessage('Text Editor updated based upon Tree View')
-        self.updateTreeViewFromText()
+        # self.statusMessage('Text Editor updated based upon Tree View')
+        # self.updateTreeViewFromText()
 
         # self.waitThreadThenFunc(0.05, self.updateTreeViewFromText)
 
+    def updateTextAutoBrace(self, txt, pos):
+        t = TextAutoBraceThread(txt, pos)
+        t.textEditSignal.connect(self.setTextEditText)
+        t.textEditCursorPosSignal.connect(self.setTextEditCursorPos)
+        t.start()
 
-    def checkItemModel(self, itm):
+
+    def treeViewChanged(self, itm):
         # tabIndex = self.tabInd()
         if self.autoUpdateViews:
             # treeView = self.treeViews[tabIndex]
@@ -953,6 +974,7 @@ class JSONitorWindow(QMainWindow):
 
             # self.waitThreadThenFunc(0.05, self.updateTextFromTreeView)
             self.updateTextFromTreeView()
+            self.updateTreeViewFromText()
         # itemModel = self.itemModels[tabIndex]
         # itemList = itemModel.itemList()
         # print(itemList)
@@ -972,7 +994,7 @@ class JSONitorWindow(QMainWindow):
     # def done(self):
     #     QMessageBox.information(self, "Done!", "Done fetching posts!")
 
-
+    @pyqtSlot(str)
     def statusMessage(self, msg, dur=2):
         dur *= 1000
         self.statusbar.showMessage(str(msg), dur)
@@ -985,10 +1007,68 @@ class JSONitorWindow(QMainWindow):
         return reply == QMessageBox.Yes
 
 
-    def asteriskTitle(self):
+    def replaceStrIndex(self, text, index=0, replacement=''):
+        return '{}{}{}'.format(text[:index], replacement, text[index+1:])
+
+
+    def textEditChanged(self):
         tabName = '{}*'.format(os.path.splitext(os.path.basename(self.lineEdits[self.tabInd()].text()))[0])
         self.tabs.setTabText(self.tabInd(), tabName)
         self.setWindowTitle('{} - {}'.format(self.title, tabName))
+        if self.autoUpdateViews:
+            self.updateTreeViewFromText()
+
+        # AutoTyping
+        if self.autoCompleteBraces:
+            textEdit = self.tEditors[self.tabInd()]
+            p = textEdit.getCursorPosition()
+            text = textEdit.text()
+            lastTypedChar = ''
+            nextChar = None
+            textLines = []
+            for ind, line in enumerate(text.split('\n')):
+                textLines.append(line)
+                if ind == p[0]:
+                    if p[1] > 0:
+                        # print(line)
+                        # lastTypedChar = line[p[1]:(p[1]-1)]
+                        lastTypedChar = line[p[1]:(p[1]+1)]
+                        nextChar = line[(p[1]+1):(p[1]+2)]
+
+            # TODO fix bug where you can backspace there characters
+            autoContinued = False
+            autoContinueOptions = ['}', ']', '"']
+            if nextChar:
+                if nextChar in autoContinueOptions:
+                    proceed = False
+                    if lastTypedChar == '}' and nextChar == '}':
+                        proceed = True
+                    elif lastTypedChar == ']' and nextChar == ']':
+                        proceed = True
+                    elif lastTypedChar == '"' and nextChar == '"':
+                        proceed = True
+                    if proceed:
+                        textLines[p[0]] = self.replaceStrIndex(textLines[p[0]], p[1], '')
+                        text = '\n'.join(textLines)
+                        p = tuple([p[0], (p[1] + 1)])
+                        self.updateTextAutoBrace(text, p)
+                        autoContinued = True
+
+            if not autoContinued: # Avoiding double typing
+                autoReplaceOptions = ['{', '[', '"']
+                if lastTypedChar in autoReplaceOptions:
+                    replaceStr = lastTypedChar
+                    if lastTypedChar == '{':
+                        replaceStr = r'{}'
+                    elif lastTypedChar == '[':
+                        replaceStr = '[]'
+                    elif lastTypedChar == '"':
+                        replaceStr = '""'
+
+                    textLines[p[0]] = self.replaceStrIndex(textLines[p[0]], p[1], replaceStr)
+                    text = '\n'.join(textLines)
+                    p = tuple([p[0], (p[1] + 1)])
+                    self.updateTextAutoBrace(text, p)
 
 
     def updateLineColInfo(self):
@@ -1105,12 +1185,37 @@ class JSONitorWindow(QMainWindow):
 #         # your logic here
 
 
+class TextAutoBraceThread(QThread):
+    textEditSignal = pyqtSignal(str)
+    textEditCursorPosSignal = pyqtSignal(tuple)
+    statusSignal = pyqtSignal(str)
+
+    def __init__(self, txt, pos, waitTime=0.1):
+        QThread.__init__(self)
+        # self.tabIndex = tabIndex
+        # self.itemModel = itemModel
+        # self.treeView = treeView
+        self.txt = txt
+        self.pos = pos
+        self.waitTime = waitTime
+
+    def __del__(self):
+        self.wait()
+
+    def run(self):
+        time.sleep(self.waitTime)
+        self.textEditSignal.emit(self.txt)
+        self.textEditCursorPosSignal.emit(self.pos)
+        self.statusSignal.emit('Auto-completed braces/brackets')
+
+
 class TreeViewUpdateThread(QThread):
     itemModelClearSignal = pyqtSignal()
     itemModelPopulateSignal = pyqtSignal(dict)
     treeViewExpandAllSignal = pyqtSignal()
+    statusSignal = pyqtSignal(str)
 
-    def __init__(self, tabIndex, itemModel, treeView, textEdit, waitTime=0.05):
+    def __init__(self, textEdit, waitTime=0.1):
         QThread.__init__(self)
         # self.tabIndex = tabIndex
         # self.itemModel = itemModel
@@ -1124,9 +1229,16 @@ class TreeViewUpdateThread(QThread):
     def run(self):
         # pass
         time.sleep(self.waitTime)
-        self.itemModelClearSignal.emit()
-        self.itemModelPopulateSignal.emit(json.loads(self.textEdit.text()))
-        self.treeViewExpandAllSignal.emit()
+        newDict = jsc.getDict(self.textEdit.text())
+        if newDict:
+            self.itemModelClearSignal.emit()
+            self.itemModelPopulateSignal.emit(newDict)
+            # self.itemModelPopulateSignal.emit(json.loads(self.textEdit.text()))
+            self.treeViewExpandAllSignal.emit()
+            self.statusSignal.emit('Updated Text based upon Tree View')
+        else:
+            logger.error('Unable to retrieve JSON from Text because Text is not valid JSON')
+            self.statusSignal.emit('WARNING: Unable to update Tree View based upon Text. Make sure the text is valid JSON.')
         # self.itemModel.clear()
         # self.itemModel.populateTree(json.loads(self.textEdit.text()) , self.itemModel.invisibleRootItem())
         # self.treeView.expandAll()
@@ -1134,15 +1246,16 @@ class TreeViewUpdateThread(QThread):
 
 class TextUpdateThread(QThread):
     textEditSignal = pyqtSignal(str)
+    statusSignal = pyqtSignal(str)
 
-    def __init__(self, tabIndex, itemModel, treeView, textEdit, waitTime = 0.05):
+    def __init__(self, itemModel, waitTime = 0.05):
 
         QThread.__init__(self)
         # super().__init__()
-        self.tabIndex = tabIndex
+        # self.tabIndex = tabIndex
         self.itemModel = itemModel
-        self.treeView = treeView
-        self.textEdit = textEdit
+        # self.treeView = treeView
+        # self.textEdit = textEdit
         self.waitTime = waitTime
 
         # self.textEditFunc = textEditFunc
@@ -1155,9 +1268,14 @@ class TextUpdateThread(QThread):
         time.sleep(self.waitTime)
         # while not self.stopped.wait(0.02):
             # self.update.emit()
-        newJSON = jsc.getJSONPretty(jsc.getDictFromLists(self.itemModel.itemList()))
+        try:
+            newJSON = jsc.getJSONPretty(jsc.getDictFromLists(self.itemModel.itemList()))
+            self.textEditSignal.emit(newJSON)
+            self.statusSignal.emit('Updated Text based upon Tree View')
+        except ValueError as vErr:
+            logger.error('Unable to retrieve JSON from Tree View because of ValueError: {}'.format(vErr))
+            self.statusSignal.emit('WARNING: Unable to update Text based upon Tree View. See log for details')
         # self.textEditFunc(newJSON)
-        self.textEditSignal.emit(newJSON)
         # self.emit(self.signal, newJSON)
         # self.textEdit.setText(newJSON)
         # self.treeView.expandAll()
