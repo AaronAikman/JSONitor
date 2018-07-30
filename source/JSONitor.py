@@ -56,44 +56,25 @@ Shift Alt Drag to multi select
 '''
 
 
-import sys, os, re
-# print(sys.version_info[0])
-# import PyQt5
-# help(PyQt5)
-# from PyQt5 import uic
+import sys
+import os
+import json
+import time
+import logging
+import getpass
+import Utilities.JSONTools as jst
+
 from PyQt5 import uic
-
-# from PyQt5 import uic, QtWidgets
-# from PyQt5.QtCore import *
-# from PyQt5.QtGui import *
-
-# from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QLabel, QFileDialog, QMessageBox
-# from PyQt5.QtGui import QPainter, QColor, QPen
-# from PyQt5.QtGui import QIcon
-# from PyQt5.QtCore import Qt
-
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
-# from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtGui import *
 from PyQt5.Qsci import *
 
-import Utilities.JSONTools as jst
-import json
-import time
-# import threading
-# import types
-
-
-
-# import functools
 
 ################
 # Logger Setup #
 ################
 
-import logging
-import getpass
 
 appTitle = 'JSONitor'
 
@@ -164,20 +145,10 @@ class JSONitorWindow(QMainWindow):
         self.autoUpdateViews = False
         self.autoCompleteBraces = True
         self.waitTime = 0.05
-        # self.sortKeys = False
-        # self.statusMessageDur = 2
-
-        # Threads
-        self.treeUpdateThread = None
-        self.textUpdateThread = None
-
-
-        # p = w.palette()
-        # p.setColor(w.backgroundRole(), Qt.red)
-        # w.setPalette(p)
-        # self.palette = self.palette()
-        # self.palette.setColor(Qt.red)
-        # self.palette.setPalette(self.palette)
+        self.sortKeys = False
+        jsc.setSortKeys(self.sortKeys)
+        self.statusMessageDur = 2
+        self.doStyling = False
 
         # TODO move to initUI?
         # Actions
@@ -311,18 +282,6 @@ class JSONitorWindow(QMainWindow):
         self.menuGo_Bookmark.addAction(self.actionGo_Bookmark_10)
         self.actionGo_Bookmark_10.triggered.connect(lambda: self.onBookmarkGo(10))
 
-
-        # menuSet_Bookmark
-
-
-        # self.actionExit = QAction(('E&xit'), self)
-        # self.actionExit.setShortcut(QKeySequence("Ctrl+Q"))
-        # self.addAction(self.actionExit)
-        # self.actionExit.triggered.connect(self.CloseSC)
-
-        # self.filepathLineEdit.dropEvent.connect(self.lineEditEnter)
-        # self.textEdit.textChanged.connect(self.textEditChanged)
-        # self.tabLayoutList = list(range(10))
         self.initUI()
         self.show()
 
@@ -330,24 +289,6 @@ class JSONitorWindow(QMainWindow):
         logger.debug('Initializing UI')
         self.title = 'JSONitor (JSON Editor by Aaron Aikman)'
         self.setWindowTitle(self.title)
-        self.doStyling = False
-
-        # Colors
-        # backgroundColor = QColor()
-        # backgroundColor.setNamedColor('#282821')
-        # self.setAutoFillBackground(True)
-        # p = self.palette()
-        # p.setColor(self.backgroundRole(), backgroundColor)
-        # p.setColor(self.backgroundRole(), Qt.gray)
-        # self.filepathLineEdit.setStyleSheet('''
-        #     QLineEdit {
-        #         border: 2px solid rgb(63, 63, 63);
-        #         color: rgb(255, 255, 255);
-        #         background-color: rgb(128, 128, 128);
-        #     }
-        # ''')
-        # # p.setColor(self.filepathLineEdit.backgroundRole(), backgroundColor)
-        # self.setPalette(p)
 
         # Colors
         self.lineEditStyleSheet = ('''
@@ -375,19 +316,6 @@ class JSONitorWindow(QMainWindow):
             ''')
 
 
-
-
-        # syntax.PythonHighlighter(self.textEdit.document())
-        # self.__editor = QsciScintilla()
-        # print(self.__editor)
-        # self.__editor.setMarginType(0, QsciScintilla.NumberMargin)
-        # self.__editor.setMarginWidth(0, "0000")
-        # self.__editor.setMarginWidth(1, "00")
-        # self.__editor.setMarginsForegroundColor(QColor("#ff888888"))
-
-        # -------------------------------- #
-        #     QScintilla editor setup      #
-        # -------------------------------- #
         self.__monoFont = QFont('DejaVu Sans Mono')
         self.__monoFont.setPointSize(8)
 
@@ -411,13 +339,7 @@ class JSONitorWindow(QMainWindow):
         # Line Column Label
         self.lineColLabel = QLabel()
         self.lineColLabel.setText('Ln 0, Cl 0')
-        self.lineColLabel.setAlignment(Qt.AlignRight)
-        # self.statusbar.addWidget(self.lineColLabel)
         self.statusbar.addPermanentWidget(self.lineColLabel)
-
-
-
-
 
         self.addPage()
 
@@ -442,11 +364,10 @@ class JSONitorWindow(QMainWindow):
     def createTextEditor(self):
         logger.debug('Creating Text Editor')
 
-
-        # ! Make instance of QSciScintilla class!
-        # ----------------------------------------
+        # Instance
         tEditor = QsciScintilla()
 
+        # TODO Fix temp text
         tempText = '''{
     "glossary": {
         "title": "example glossary",
@@ -478,129 +399,69 @@ class JSONitorWindow(QMainWindow):
         tEditor.setUtf8(True)             # Set encoding to UTF-8
         tEditor.setFont(self.__monoFont)
 
-        # 1. Text wrapping
-        # -----------------
+        # Text wrapping
         tEditor.setWrapMode(QsciScintilla.WrapWord)
         tEditor.setWrapVisualFlags(QsciScintilla.WrapFlagByText)
         tEditor.setWrapIndentMode(QsciScintilla.WrapIndentIndented)
 
-        # 2. End-of-line mode
-        # --------------------
+        # End-of-line mode
         tEditor.setEolMode(QsciScintilla.EolWindows)
         tEditor.setEolVisibility(False)
 
-        # 3. Indentation
-        # ---------------
+        # Indentation
         tEditor.setIndentationsUseTabs(False)
         tEditor.setTabWidth(4)
         tEditor.setIndentationGuides(True)
         tEditor.setTabIndents(True)
         tEditor.setAutoIndent(True)
 
-        # 4. Caret
-        # ---------
+        # Caret
         tEditor.setCaretForegroundColor(QColor("#ff0000ff"))
         tEditor.setCaretLineVisible(True)
         tEditor.setCaretLineBackgroundColor(QColor("#1f0000ff"))
         tEditor.setCaretWidth(2)
 
-        # 5. Margins
-        # -----------
-        # Margin 0 = Line nr margin
+        # Margins
         tEditor.setMarginType(0, QsciScintilla.NumberMargin)
         tEditor.setMarginWidth(0, "0000")
         tEditor.setMarginWidth(1, "0")
         tEditor.setMarginsForegroundColor(QColor("#ff888888"))
 
-        # self.__lexer = JSONLexer(tEditor)
-        self.__lexer = QsciLexerJSON(tEditor)
-        # Set colors
-        # self.__lexer.setColor(Qt.gray)
-        # self.__lexer.setPaper(Qt.gray)
-        self.__lexer.setDefaultFont(self.__monoFont)
-        # self.__lexer.setFolding(QsciScintilla.BoxedTreeFoldStyle)
+        # Lexer
+        self.lexer = QsciLexerJSON(tEditor)
+        self.lexer.setDefaultFont(self.__monoFont)
         tEditor.setFolding(True)
-        # self.__lexer.setFoldCompact(True)
 
-        # self.__lexer = QsciLexerXML(tEditor)
-        # self.__lexer = QsciLexerYAML(tEditor)
+        # self.lexer = QsciLexerXML(tEditor)
+        # self.lexer = QsciLexerYAML(tEditor)
 
         tEditor.setAutoCompletionSource(QsciScintilla.AcsDocument)
         tEditor.setAutoCompletionThreshold(3)
         tEditor.setAutoCompletionCaseSensitivity(False)
 
-        # 2. Install the lexer onto your editor
-        tEditor.setLexer(self.__lexer)
+        tEditor.setLexer(self.lexer)
 
         # tEditor.setFont(self.__monoFont)
 
         tEditor.textChanged.connect(self.textEditChanged)
         tEditor.cursorPositionChanged.connect(self.updateLineColInfo)
 
-
         # Drops
         tEditor.setAcceptDrops(True)
 
-
         # Multiline Editing
         tEditor.SendScintilla(tEditor.SCI_SETADDITIONALSELECTIONTYPING, 1)
-        # offset =tEditor.positionFromLineIndex(0, 7) # line-index to offset
-        # tEditor.SendScintilla(tEditor.SCI_SETSELECTION, offset, offset)
-        # # using the same offset twice selects no characters, hence a cursor
-
-        # offset = tEditor.positionFromLineIndex(1, 5)
-        # tEditor.SendScintilla(tEditor.SCI_ADDSELECTION, offset, offset)
-
-        # offset = tEditor.positionFromLineIndex(2, 5)
-        # tEditor.SendScintilla(tEditor.SCI_ADDSELECTION, offset, offset)
 
         tEditor.setMarginSensitivity(0, True)
         tEditor.setMarginSensitivity(1, True)
         tEditor.marginClicked.connect(self.marginLeftClick)
-        # tEditor.marginRightClicked.connect(self.__margin_right_clicked)
 
         if self.doStyling:
             tEditor.setStyleSheet(self.textEditStyleSheet)
 
         self.tEditors.append(tEditor)
 
-
-
         return tEditor
-
-        # Margin 1 = Symbol margin
-        # self.__editor.setMarginType(1, QsciScintilla.SymbolMargin)
-        # self.__editor.setMarginWidth(1, "00000")
-        # sym_0 = QImage("green_dot.png").scaled(QSize(16, 16))
-        # sym_1 = QImage("green_arrow.png").scaled(QSize(16, 16))
-        # sym_2 = QImage("red_dot.png").scaled(QSize(16, 16))
-        # sym_3 = QImage("red_arrow.png").scaled(QSize(16, 16))
-
-        # self.__editor.markerDefine(sym_0, 0)
-        # self.__editor.markerDefine(sym_1, 1)
-        # self.__editor.markerDefine(sym_2, 2)
-        # self.__editor.markerDefine(sym_3, 3)
-
-        # self.__editor.setMarginMarkerMask(1, 0b1111)
-
-        # TABS
-                # Initialize tab screen
-
-
-
-
-
-        # color_palette = self.text_editor.palette()
-        # color_palette.setColor(QPalette.Text, Qt.white)
-        # color_palette.setColor(QPalette.Base, backgroundColor)
-        # self.text_editor.setPalette(color_palette)
-
-        # default_font = self.text_editor.font()
-        # default_font.setPointSize(9)
-        # self.text_editor.setFont(default_font)
-
-        # # self.setCentralWidget(self.text_editor)
-        # self.setGeometry(500, 500, 500, 500)
 
 
     def createTreeView(self):
@@ -622,26 +483,8 @@ class JSONitorWindow(QMainWindow):
         # treeView.collapseAll()
         self.treeViews.append(treeView)
 
-        # Colors
-        # backgroundColor = QColor()
-        # backgroundColor.setNamedColor('#282821')
-        # treeView.setAutoFillBackground(True)
-        # p = treeView.palette()
-        # # print(dir(p.setColor))
-        # # p.setColor(treeView.backgroundRole(), backgroundColor)
-        # # p.setColor(treeView.role(), backgroundColor)
-        # p.setColor(treeView.backgroundRole(), Qt.red)
-        # treeView.setPalette(p)
-        # treeView.setStyleSheet('''
-        #     QTreeView {
-        #         border: 2px solid rgb(63, 63, 63);
-        #         color: rgb(255, 255, 255);
-        #         background-color: rgb(128, 128, 128);
-        #     }
-        # ''')
         if self.doStyling:
             treeView.setStyleSheet(self.treeViewStyleSheet)
-
 
         return treeView
 
@@ -696,15 +539,10 @@ class JSONitorWindow(QMainWindow):
                     "All files (*)"
                     ]
         dlg.setNameFilters(filterList)
-        # filenames = QStringList()
-        # filenames = []
 
-        # if doDialog:
-        #     if dlg.exec_():
         if dlg.exec_():
             filenames = dlg.selectedFiles()
             self.currentFile = filenames[0]
-            # self.filepathLineEdit.setText(self.currentFile)
             self.openFile()
 
 
@@ -880,13 +718,11 @@ class JSONitorWindow(QMainWindow):
 
     @pyqtSlot(str)
     def setTextEditText(self, txt):
-        # time.sleep(self.waitTime)
         logger.debug('Text to populate Text View with is {}'.format(txt))
         self.tEditors[self.tabInd()].setText(txt)
 
     @pyqtSlot(tuple)
     def setTextEditCursorPos(self, pos):
-        # time.sleep(self.waitTime)
         logger.debug('Position to set text cursor is {}'.format(pos))
         self.tEditors[self.tabInd()].setCursorPosition(pos[0], pos[1])
 
@@ -919,44 +755,23 @@ class JSONitorWindow(QMainWindow):
 
     def updateTreeViewFromText(self):
         tabIndex = self.tabInd()
-        # itemModel = self.itemModels[tabIndex]
-        # treeView = self.treeViews[tabIndex]
         textEdit = self.tEditors[tabIndex]
-        # if not self.treeUpdateThread:
-        self.treeViewUpdateThread = TreeViewUpdateThread(textEdit)
-        self.treeViewUpdateThread.itemModelClearSignal.connect(self.itemModelClear)
-        self.treeViewUpdateThread.itemModelPopulateSignal.connect(self.itemModelPopulate)
-        self.treeViewUpdateThread.treeViewExpandAllSignal.connect(self.treeViewExpandAll)
-        self.treeViewUpdateThread.statusSignal.connect(self.statusMessage)
-            # self.connect(self.treeViewUpdateThread, SIGNAL("finished()"), self.done)
-        self.treeViewUpdateThread.start()
-        # itemModel.clear()
-        # itemModel.populateTree(json.loads(self.tEditors[tabIndex].text()) , itemModel.invisibleRootItem())
-        # self.treeViews[tabIndex].expandAll()
-        # self.statusMessage('Tree View updated based upon Text Editor')
+        t = TreeViewUpdateThread(textEdit)
+        t.itemModelClearSignal.connect(self.itemModelClear)
+        t.itemModelPopulateSignal.connect(self.itemModelPopulate)
+        t.treeViewExpandAllSignal.connect(self.treeViewExpandAll)
+        t.statusSignal.connect(self.statusMessage)
+        t.start()
 
 
     def updateTextFromTreeView(self):
         tabIndex = self.tabInd()
         itemModel = self.itemModels[tabIndex]
-        # treeView = self.treeViews[tabIndex]
-        # textEdit = self.tEditors[tabIndex]
-        # if not self.textUpdateThread:
-        self.textUpdateThread = TextUpdateThread(itemModel)
-        self.textUpdateThread.textEditSignal.connect(self.setTextEditText)
-        self.textUpdateThread.statusSignal.connect(self.statusMessage)
-        # print(dir(self.textUpdateThread.signal))
-        # self.connect(self.textUpdateThread, self.textUpdateThread.signal, self.setTextEditText)
-        # print(dir(self.textUpdateThread.signal))
-        self.textUpdateThread.start()
-        # print(itemModel.itemList())
-        # newJSON = jsc.getJSONPretty(jsc.getDictFromLists(itemModel.itemList()))
-        # self.tEditors[tabIndex].setText(newJSON)
-        # treeView.expandAll()
-        # self.statusMessage('Text Editor updated based upon Tree View')
-        # self.updateTreeViewFromText()
+        t = TextUpdateThread(itemModel)
+        t.textEditSignal.connect(self.setTextEditText)
+        t.statusSignal.connect(self.statusMessage)
+        t.start()
 
-        # self.waitThreadThenFunc(0.05, self.updateTreeViewFromText)
 
     def updateTextAutoBrace(self, txt, pos):
         t = TextAutoBraceThread(txt, pos)
@@ -966,36 +781,14 @@ class JSONitorWindow(QMainWindow):
 
 
     def treeViewChanged(self, itm):
-        # tabIndex = self.tabInd()
         if self.autoUpdateViews:
-            # treeView = self.treeViews[tabIndex]
-            # treeView.updateGeometries()
-            # time.sleep(1)
-
-            # self.waitThreadThenFunc(0.05, self.updateTextFromTreeView)
             self.updateTextFromTreeView()
             self.updateTreeViewFromText()
-        # itemModel = self.itemModels[tabIndex]
-        # itemList = itemModel.itemList()
-        # print(itemList)
-        # itemDict = jsc.getDictFromLists(itemList)
-        # print(itemDict)
 
-
-    # def waitThreadThenFunc(self, dur, f):
-    #     t = threading.Thread(target=self.callFunc, args=(dur, f))
-    #     t.start()
-
-
-    # def callFunc(self, dur, f):
-    #     time.sleep(dur)
-    #     f()
-
-    # def done(self):
-    #     QMessageBox.information(self, "Done!", "Done fetching posts!")
 
     @pyqtSlot(str)
     def statusMessage(self, msg, dur=2):
+        dur = self.statusMessageDur if self.statusMessageDur else dur
         dur *= 1000
         self.statusbar.showMessage(str(msg), dur)
         logger.info(msg)
@@ -1030,8 +823,6 @@ class JSONitorWindow(QMainWindow):
                 textLines.append(line)
                 if ind == p[0]:
                     if p[1] > 0:
-                        # print(line)
-                        # lastTypedChar = line[p[1]:(p[1]-1)]
                         lastTypedChar = line[p[1]:(p[1]+1)]
                         nextChar = line[(p[1]+1):(p[1]+2)]
 
@@ -1173,17 +964,6 @@ class JSONitorWindow(QMainWindow):
     #     #can not write there
 
 
-# class YourThreadName(QThread):
-
-#     def __init__(self):
-#         QThread.__init__(self)
-
-#     def __del__(self):
-#         self.wait()
-
-#     def run(self):
-#         # your logic here
-
 
 class TextAutoBraceThread(QThread):
     textEditSignal = pyqtSignal(str)
@@ -1192,9 +972,6 @@ class TextAutoBraceThread(QThread):
 
     def __init__(self, txt, pos, waitTime=0.1):
         QThread.__init__(self)
-        # self.tabIndex = tabIndex
-        # self.itemModel = itemModel
-        # self.treeView = treeView
         self.txt = txt
         self.pos = pos
         self.waitTime = waitTime
@@ -1217,9 +994,6 @@ class TreeViewUpdateThread(QThread):
 
     def __init__(self, textEdit, waitTime=0.1):
         QThread.__init__(self)
-        # self.tabIndex = tabIndex
-        # self.itemModel = itemModel
-        # self.treeView = treeView
         self.textEdit = textEdit
         self.waitTime = waitTime
 
@@ -1227,21 +1001,16 @@ class TreeViewUpdateThread(QThread):
         self.wait()
 
     def run(self):
-        # pass
         time.sleep(self.waitTime)
         newDict = jsc.getDict(self.textEdit.text())
         if newDict:
             self.itemModelClearSignal.emit()
             self.itemModelPopulateSignal.emit(newDict)
-            # self.itemModelPopulateSignal.emit(json.loads(self.textEdit.text()))
             self.treeViewExpandAllSignal.emit()
             self.statusSignal.emit('Updated Text based upon Tree View')
         else:
             logger.error('Unable to retrieve JSON from Text because Text is not valid JSON')
             self.statusSignal.emit('WARNING: Unable to update Tree View based upon Text. Make sure the text is valid JSON.')
-        # self.itemModel.clear()
-        # self.itemModel.populateTree(json.loads(self.textEdit.text()) , self.itemModel.invisibleRootItem())
-        # self.treeView.expandAll()
 
 
 class TextUpdateThread(QThread):
@@ -1249,44 +1018,22 @@ class TextUpdateThread(QThread):
     statusSignal = pyqtSignal(str)
 
     def __init__(self, itemModel, waitTime = 0.05):
-
         QThread.__init__(self)
-        # super().__init__()
-        # self.tabIndex = tabIndex
         self.itemModel = itemModel
-        # self.treeView = treeView
-        # self.textEdit = textEdit
         self.waitTime = waitTime
-
-        # self.textEditFunc = textEditFunc
-        # self.textEditSignal.connect(textEditFunc)
 
     def __del__(self):
         self.wait()
 
     def run(self):
         time.sleep(self.waitTime)
-        # while not self.stopped.wait(0.02):
-            # self.update.emit()
         try:
             newJSON = jsc.getJSONPretty(jsc.getDictFromLists(self.itemModel.itemList()))
             self.textEditSignal.emit(newJSON)
             self.statusSignal.emit('Updated Text based upon Tree View')
         except ValueError as vErr:
             logger.error('Unable to retrieve JSON from Tree View because of ValueError: {}'.format(vErr))
-            self.statusSignal.emit('WARNING: Unable to update Text based upon Tree View. See log for details')
-        # self.textEditFunc(newJSON)
-        # self.emit(self.signal, newJSON)
-        # self.textEdit.setText(newJSON)
-        # self.treeView.expandAll()
-
-
-        # tabIndex = self.tabInd()
-        # itemModel = self.itemModels[tabIndex]
-        # self.itemModel.clear()
-        # self.itemModel.populateTree(json.loads(self.tEditors[tabIndex].text()) , self.itemModel.invisibleRootItem())
-        # self.treeView.expandAll()
-        # self.statusMessage('Tree View updated based upon Text Editor')
+            self.statusSignal.emit('WARNING: Unable to update Text based upon Tree View. Ensure that the Tree View would result in valid JSON. See log for details')
 
 
 class StandardItemModel(QStandardItemModel):
@@ -1311,49 +1058,24 @@ class StandardItemModel(QStandardItemModel):
     def populateTree(self, children, parent, sort=False):
         if sort:
             children = sorted(children)
-        # print(children)
         if isinstance(children, (dict, list)):
             for ind, child in enumerate(children):
                 # Handling lists
                 if isinstance(children, list) and any([isinstance(x, dict) for x in children]): # TODO optimize
-                    # print('list', child)
                     childItem = QStandardItem(str(ind))
                     childItem.setEditable(False)
                     childItem.setFont(self.__fadeFont)
-                    # print(childItem.isEditable())
                     # TODO use setIcon to show array
                     parent.appendRow(childItem)
                     self.populateTree(child, childItem)
                 else:
-                    # print('dict or list', child)
                     childItem = QStandardItem(str(child))
-                    # childItem = QStandardItem(child)
                     parent.appendRow(childItem)
-                    # if isinstance(children, types.DictType):
-                    # print(type(children), children)
                 if isinstance(children, dict):
-                    # print(children[child])
-                    # print('dict', children[child])
                     self.populateTree(children[child], childItem)
         else:
-            # print(type(children), children)
             childItem = QStandardItem(str(children))
             parent.appendRow(childItem)
-
-    # def _populateTree(self, children, parent, sort=False):
-    #     if sort:
-    #         children = sorted(children)
-    #     if isinstance(children, (dict, list)):
-    #         for child in children:
-    #             childItem = QStandardItem(str(child))
-    #             parent.appendRow(childItem)
-    #             # if isinstance(children, types.DictType):
-    #             if isinstance(children, dict):
-    #                 self._populateTree(children[child], childItem)
-    #     else:
-    #         childItem = QStandardItem(str(children))
-    #         parent.appendRow(childItem)
-
 
 
 if __name__ == '__main__':

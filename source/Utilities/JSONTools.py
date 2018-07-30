@@ -7,7 +7,6 @@ class JSONConverter:
             self.__content = JSONText
         self.__dict = self.getDict(JSONText) if JSONText else None
         self.sortKeys = False
-        # self.allowNan = False # TODO fix?
         self.logger = logger
 
 
@@ -29,29 +28,16 @@ class JSONConverter:
         """
         return json.dumps(d, indent=4, sort_keys=self.sortKeys, allow_nan=False)
 
+
     def getJSONCompact(self, d):
         """ Returns JSON with no whitespace
         """
         return json.dumps(d, indent=None, separators=(',', ':'), sort_keys=self.sortKeys, allow_nan=False)
 
 
-    # def getElem(self):
-    #     return [x for x in self.__dict]
-
-
-    def _getDepth(self, d, level=1):
-        if not isinstance(d, dict) or not d:
-            return level
-        return max(self._getDepth(d[k], level + 1) for k in d)
-
-    def _getAllKeys(self, d, level=1, keys=[]):
-        if not isinstance(d, dict) or not d:
-            return level
-        keys.append([k for k in d])
-        # print(keys)
-        # return max(self._getAllKeys(d[k], level + 1, keys) for k in d)
-        [self._getAllKeys(d[k], level + 1, keys) for k in d]
-        return keys
+    def setSortKeys(self, b):
+        if isinstance(b, bool):
+            self.sortKeys = b
 
 
     def __isNumberOrNone(self, s):
