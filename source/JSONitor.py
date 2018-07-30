@@ -47,6 +47,8 @@ sort
 MORE
 Unit tests (open files, store compact json, convert to tree view and back, check against compact json)
 remove index from bookmarks when tab closed and shift other tab indices
+Format Commenting
+make sure var names are consistent/descriptive
 
 NOTE
 Shift Alt Drag to multi select
@@ -75,6 +77,7 @@ from PyQt5.Qsci import *
 # Logger Setup #
 ################
 
+# TODO Move logger to module?
 appTitle = 'JSONitor'
 
 userName = getpass.getuser()
@@ -125,7 +128,6 @@ class JSONitorWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.currentFile = None
 
         # Info
         self.pages = []
@@ -149,6 +151,8 @@ class JSONitorWindow(QMainWindow):
         jsc.setSortKeys(self.sortKeys)
         self.statusMessageDur = 2
         self.doStyling = False
+        self.errorDuration = 5
+        self.warningDuration = 2.5
 
         self.initUI()
 
@@ -174,21 +178,21 @@ class JSONitorWindow(QMainWindow):
         self.actionQuit.triggered.connect(self.closeWindow)
         self.actionUpdate_Tree_View.triggered.connect(self.updateTreeViewFromText)
         self.actionUpdate_Text.triggered.connect(self.updateTextFromTreeView)
-        self.filepathLineEdit.returnPressed.connect(self.lineEditEnter)
+        # self.filepathLineEdit.returnPressed.connect(self.lineEditEnter)
 
         # Go options
         self.actionGo_to_Line.triggered.connect(self.goToLine)
 
-        self.actionGo_to_Tab_1.triggered.connect(lambda: self.onTabGo(1))
-        self.actionGo_to_Tab_2.triggered.connect(lambda: self.onTabGo(2))
-        self.actionGo_to_Tab_3.triggered.connect(lambda: self.onTabGo(3))
-        self.actionGo_to_Tab_4.triggered.connect(lambda: self.onTabGo(4))
-        self.actionGo_to_Tab_5.triggered.connect(lambda: self.onTabGo(5))
-        self.actionGo_to_Tab_6.triggered.connect(lambda: self.onTabGo(6))
-        self.actionGo_to_Tab_7.triggered.connect(lambda: self.onTabGo(7))
-        self.actionGo_to_Tab_8.triggered.connect(lambda: self.onTabGo(8))
-        self.actionGo_to_Tab_9.triggered.connect(lambda: self.onTabGo(9))
-        self.actionGo_to_Tab_10.triggered.connect(lambda: self.onTabGo(10))
+        self.actionGo_to_Tab_1.triggered.connect(lambda: self.onTabGo(0))
+        self.actionGo_to_Tab_2.triggered.connect(lambda: self.onTabGo(1))
+        self.actionGo_to_Tab_3.triggered.connect(lambda: self.onTabGo(2))
+        self.actionGo_to_Tab_4.triggered.connect(lambda: self.onTabGo(3))
+        self.actionGo_to_Tab_5.triggered.connect(lambda: self.onTabGo(4))
+        self.actionGo_to_Tab_6.triggered.connect(lambda: self.onTabGo(5))
+        self.actionGo_to_Tab_7.triggered.connect(lambda: self.onTabGo(6))
+        self.actionGo_to_Tab_8.triggered.connect(lambda: self.onTabGo(7))
+        self.actionGo_to_Tab_9.triggered.connect(lambda: self.onTabGo(8))
+        self.actionGo_to_Tab_10.triggered.connect(lambda: self.onTabGo(9))
 
         # Set Bookmarks
         self.actionSet_Bookmark_1 = QAction('Set Bookmark 1', self)
@@ -359,8 +363,11 @@ class JSONitorWindow(QMainWindow):
         lineEdit.setFont(self.__monoFont)
         lineEdit.returnPressed.connect(self.lineEditEnter)
         self.lineEdits.append(lineEdit)
-        # TODO fix this naming the wrong thing if a tab has been closed
-        tmpFileName = ('{}\\AutoSave\\tmp{}.json'.format(sourcePath, (len(self.files) + 1))).replace('\\', '/')
+        nameAttemptCount = 1
+        tmpFileName = ('{}\\AutoSave\\tmp{}.json'.format(sourcePath, (nameAttemptCount))).replace('\\', '/')
+        while tmpFileName in self.files:
+            tmpFileName = ('{}\\AutoSave\\tmp{}.json'.format(sourcePath, (nameAttemptCount))).replace('\\', '/')
+            nameAttemptCount += 1
         self.files.append(tmpFileName)
         lineEdit.setText(tmpFileName)
         if self.doStyling:
@@ -552,71 +559,84 @@ class JSONitorWindow(QMainWindow):
 
         if dlg.exec_():
             filenames = dlg.selectedFiles()
-            self.currentFile = filenames[0]
-            self.openFile()
+            self.openFile(filenames[0])
 
 
-    def openFile(self):
-        if self.currentFile in self.files:
-            self.tabs.setCurrentIndex(self.files.index(self.currentFile))
+    def openFile(self, filename):
+        if filename in self.files:
+            self.tabs.setCurrentIndex(self.files.index(filename))
         else:
             logger.debug('File not found in current tabs. Opening new tab.')
             self.addPage()
-            self.lineEdits[self.tabInd()].setText(self.currentFile)
-            with open(self.currentFile, 'r', encoding='utf-8-sig') as f:
-                data = f.read()
-                self.textEditors[self.tabInd()].setText(data)
+            self.lineEdits[self.tabInd()].setText(filename)
+            if os.path.isfile(filename):
+                with open(filename, 'r', encoding='utf-8-sig') as f:
+                    data = f.read()
+                    self.textEditors[self.tabInd()].setText(data)
 
-            self.files[self.tabInd()] = self.currentFile
-            logger.debug('Open Files: {}'.format(self.files))
+                self.files[self.tabInd()] = filename
+                logger.debug('Open Files: {}'.format(self.files))
 
-            self.setWindowTitle('{} - {}'.format(self.title, os.path.basename(self.currentFile)))
-            tabName = os.path.splitext(os.path.basename(self.lineEdits[self.tabInd()].text()))[0]
-            self.tabs.setTabText(self.tabInd(), tabName)
-            self.updateTreeViewFromText()
-            self.statusMessage('Opened file: {}'.format(self.currentFile))
-
+                self.setWindowTitle('{} - {}'.format(self.title, os.path.basename(filename)))
+                tabName = os.path.splitext(os.path.basename(self.lineEdits[self.tabInd()].text()))[0]
+                self.tabs.setTabText(self.tabInd(), tabName)
+                self.updateTreeViewFromText()
+                self.statusMessage('Opened file: {}'.format(filename))
+            else:
+                self.statusMessage('The following file does not exist: {}'.format(filename), error=True)
 
     def saveFile(self, doDialog = 0):
-        # TODO fix infinite loop if you cancel save dialog
-        filename = self.files[self.tabInd()]
-        fpText = self.lineEdits[self.tabInd()].text()
+        tabInd = self.tabInd()
+        filename = self.files[tabInd]
+        if not filename:
+            self.saveAs()
+        fpText = self.lineEdits[tabInd].text()
         if doDialog:
-            # TODO set default to json
-            filename = QFileDialog.getSaveFileName(self, 'Save File')[0]
+            filename = QFileDialog.getSaveFileName(self, 'Save File', filter='*json')[0]
             if filename:
-                self.currentFile = filename
-                self.lineEdits[self.tabInd()].setText(self.currentFile)
+                self.lineEdits[tabInd].setText(filename)
         elif filename != fpText:
             if os.path.isfile(fpText):
                 if self.quickPrompt('Save?', 'Do you want to OVERWRITE to the new filepath instead of the original?'):
                     filename = fpText
-                    self.currentFile = filename
                 else:
-                    self.lineEdits[self.tabInd()].setText(self.currentFile)
+                    self.lineEdits[tabInd].setText(filename)
             else:
                 if self.quickPrompt('Save?', 'Do you want to save to the new filepath instead of the original?'):
                     filename = fpText
-                    self.currentFile = filename
                 else:
-                    self.lineEdits[self.tabInd()].setText(self.currentFile)
+                    self.lineEdits[tabInd].setText(filename)
 
         if filename:
-            newText = str(self.textEditors[self.tabInd()].text())
+            newText = str(self.textEditors[tabInd].text())
             if not os.path.exists(os.path.dirname(filename)):
                 os.makedirs(os.path.dirname(filename))
-                # TODO add try in case can't make dir
-            with open(filename, 'w') as f:
-                f.write(newText)
 
-            self.setWindowTitle('{} - {}'.format(self.title, os.path.basename(self.currentFile)))
+            if os.access(os.path.dirname(filePath), os.W_OK):
+                with open(filename, 'w') as f:
+                    f.write(newText)
+                self.setWindowTitle('{} - {}'.format(self.title, os.path.basename(filename)))
 
-            self.files[self.tabInd()] = self.currentFile
-            tabName = os.path.splitext(os.path.basename(self.lineEdits[self.tabInd()].text()))[0]
-            self.tabs.setTabText(self.tabInd(), tabName)
-            self.statusMessage('Saved file: {}'.format(filename))
-        else:
-            self.saveAs()
+                self.files[tabInd] = filename
+                tabName = os.path.splitext(os.path.basename(self.lineEdits[tabInd].text()))[0]
+                self.tabs.setTabText(tabInd, tabName)
+                self.statusMessage('Saved file: {}'.format(filename))
+
+                # Handling overwriting a file that is open in another tab
+                if self.files.count(filename) > 1:
+                    for ind, fName in enumerate(self.files):
+                        if ind != tabInd:
+                            if fName == filename:
+                                self.onTabGo(ind)
+                                self.onTabClose(force=True)
+                self.onTabGo(tabInd)
+
+            else:
+                self.statusMessage('User does not have write permissions to save to {}'.format(filename), error=True)
+
+
+
+
 
 
     def saveAs(self):
@@ -627,10 +647,11 @@ class JSONitorWindow(QMainWindow):
     # Tab Functions #
     #################
 
-    def onTabClose(self):
-        if self.tabs.tabText(self.tabInd())[-1] == '*':
-            if self.quickPrompt('Save?', 'Do you want to save before closing the tab?'):
-                self.saveFile()
+    def onTabClose(self, force=False):
+        if not force:
+            if self.tabs.tabText(self.tabInd())[-1] == '*':
+                if self.quickPrompt('Save?', 'Do you want to save before closing the tab?'):
+                    self.saveFile()
 
         tabIndex = self.tabInd()
         self.recentlyClosedFiles.append(self.files[self.tabInd()])
@@ -645,21 +666,23 @@ class JSONitorWindow(QMainWindow):
 
 
     def onTabGo(self, ind):
-        ind -= 1
-        if len(self.pages) > ind:
+        # ind -= 1
+        if (len(self.pages) - 1) > ind:
             self.tabs.setCurrentIndex(ind)
 
 
     def onTabReopen(self):
+        # TODO fix this not being retriggerable in succession anymore?
+        logger.info('Attempting to reopen the last closed tab.')
         reopening = True
         while reopening:
             if self.recentlyClosedFiles:
-                if os.path.isfile(self.recentlyClosedFiles[-1]):
-                    self.currentFile = self.recentlyClosedFiles[-1]
-                    del self.recentlyClosedFiles[-1]
-                    self.openFile()
-                    self.statusMessage('Reopened {}'.format(self.currentFile))
+                filename = self.recentlyClosedFiles[-1]
+                if os.path.isfile(filename):
+                    self.openFile(filename)
+                    self.statusMessage('Reopened {}'.format(filename))
                     reopening = False
+                    del self.recentlyClosedFiles[-1]
                 else:
                     del self.recentlyClosedFiles[-1]
             else:
@@ -669,7 +692,8 @@ class JSONitorWindow(QMainWindow):
     def onTabChange(self):
         self.setWindowTitle('{} - {}'.format(self.title, self.tabs.tabText(self.tabInd())))
         self.recentlyAccessedTabs.append(self.tabInd())
-        if len(self.recentlyAccessedTabs) > 2:
+        # keeping up to five last tabs in case of tab overwrites
+        if len(self.recentlyAccessedTabs) > 5:
             del self.recentlyAccessedTabs[0]
 
 
@@ -796,12 +820,31 @@ class JSONitorWindow(QMainWindow):
             self.updateTreeViewFromText()
 
 
-    @pyqtSlot(str)
-    def statusMessage(self, msg, dur=2):
+    @pyqtSlot(str, int)
+    def statusMessage(self, msg, mode=0, doLog=True, dur=1):
+        """
+        Shows a message in the status bar and writes it to the log
+        mode = [info, warning, error]
+        dur = ms to show message in status bar for
+        """
         dur = self.statusMessageDur if self.statusMessageDur else dur
+        prefix = 'INFO: '
+        if mode == 2:
+            prefix = 'ERROR: '
+            if doLog:
+                logger.error(msg)
+            dur = self.errorDuration
+        elif mode == 1:
+            prefix = 'WARNING: '
+            if doLog:
+                logger.warn(msg)
+            dur = self.warningDuration
+        else:
+            if doLog:
+                logger.info(msg)
+
         dur *= 1000
-        self.statusbar.showMessage(str(msg), dur)
-        logger.info(msg)
+        self.statusbar.showMessage('{}{}'.format(prefix, msg), dur)
 
 
     def quickPrompt(self, title, message):
@@ -878,13 +921,11 @@ class JSONitorWindow(QMainWindow):
 
 
     def lineEditEnter(self):
-        # TODO make sure you can't lose your changes to current file
         # TODO maybe add a separate button for open
         filepathText = self.lineEdits[self.tabInd()].text()
         if filepathText:
             if os.path.isfile(filepathText):
-                self.currentFile = filepathText
-                self.openFile()
+                self.openFile(filepathText)
             else:
                 self.saveFile()
 
@@ -977,9 +1018,9 @@ class JSONitorWindow(QMainWindow):
 class TextAutoBraceThread(QThread):
     textEditSignal = pyqtSignal(str)
     textEditCursorPosSignal = pyqtSignal(tuple)
-    statusSignal = pyqtSignal(str)
+    statusSignal = pyqtSignal(str, int)
 
-    def __init__(self, txt, pos, waitTime=0.1):
+    def __init__(self, txt, pos, waitTime=0.05):
         QThread.__init__(self)
         self.txt = txt
         self.pos = pos
@@ -992,14 +1033,14 @@ class TextAutoBraceThread(QThread):
         time.sleep(self.waitTime)
         self.textEditSignal.emit(self.txt)
         self.textEditCursorPosSignal.emit(self.pos)
-        self.statusSignal.emit('Auto-completed braces/brackets')
+        self.statusSignal.emit('Auto-completed braces/brackets', 0)
 
 
 class TreeViewUpdateThread(QThread):
     itemModelClearSignal = pyqtSignal()
     itemModelPopulateSignal = pyqtSignal(dict)
     treeViewExpandAllSignal = pyqtSignal()
-    statusSignal = pyqtSignal(str)
+    statusSignal = pyqtSignal(str, int)
 
     def __init__(self, textEdit, waitTime=0.1):
         QThread.__init__(self)
@@ -1016,15 +1057,14 @@ class TreeViewUpdateThread(QThread):
             self.itemModelClearSignal.emit()
             self.itemModelPopulateSignal.emit(newDict)
             self.treeViewExpandAllSignal.emit()
-            self.statusSignal.emit('Updated Text based upon Tree View')
+            self.statusSignal.emit('Updated Text based upon Tree View', 0)
         else:
-            logger.error('Unable to retrieve JSON from Text because Text is not valid JSON')
-            self.statusSignal.emit('WARNING: Unable to update Tree View based upon Text. Make sure the text is valid JSON.')
+            self.statusSignal.emit('Unable to update Tree View based upon Text. Make sure the text is valid JSON.', 1)
 
 
 class TextUpdateThread(QThread):
     textEditSignal = pyqtSignal(str)
-    statusSignal = pyqtSignal(str)
+    statusSignal = pyqtSignal(str, int)
 
     def __init__(self, itemModel, waitTime = 0.05):
         QThread.__init__(self)
@@ -1039,10 +1079,10 @@ class TextUpdateThread(QThread):
         try:
             newJSON = jsc.getJSONPretty(jsc.getDictFromLists(self.itemModel.itemList()))
             self.textEditSignal.emit(newJSON)
-            self.statusSignal.emit('Updated Text based upon Tree View')
+            self.statusSignal.emit('Updated Text based upon Tree View', 0)
         except ValueError as vErr:
-            logger.error('Unable to retrieve JSON from Tree View because of ValueError: {}'.format(vErr))
-            self.statusSignal.emit('WARNING: Unable to update Text based upon Tree View. Ensure that the Tree View would result in valid JSON. See log for details')
+            logger.warn('Unable to retrieve JSON from Tree View because of ValueError: {}'.format(vErr))
+            self.statusSignal.emit('WARNING: Unable to update Text based upon Tree View. Ensure that the Tree View would result in valid JSON. See log for details', 1)
 
 
 class StandardItemModel(QStandardItemModel):
