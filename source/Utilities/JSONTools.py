@@ -108,4 +108,3 @@ class JSONConverter:
                 return self.__filterValue(arr[0][1])
             return [self.__filterValue(x) for x in arr]
         return dic
-

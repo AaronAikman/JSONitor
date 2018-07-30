@@ -19,7 +19,7 @@ select all Occurences
 Ctrl up and down to scroll
 ability to resize pane middle
 *add line edit to panes for searching (itemModel.findItems)
-close window, ask save
+close window, ask save if any tab has unsaved changes
 
 LINE EDIT
 Up down arrows to search through dir
@@ -27,7 +27,7 @@ left right arrows to go up or down folders
 
 JSON
 conversion to (xml, csv, yaml)?
-*validation
+*validation help
 format/Beautify
 Minimize/compact
 use margin clicks for reordering elements
@@ -35,11 +35,10 @@ Add schema support?
 compensate for NaN, Infinity, -Infinity?
 
 TREE VIEW
-*validation
 expand/collapse buttons
 add lengths and indexing
-arrow buttons for conversion
-edit
+icons for types
+arrow buttons for switching views
 duplicate
 insert
 remove
@@ -47,6 +46,7 @@ sort
 
 MORE
 Unit tests (open files, store compact json, convert to tree view and back, check against compact json)
+remove index from bookmarks when tab closed and shift other tab indices
 
 NOTE
 Shift Alt Drag to multi select
@@ -75,7 +75,6 @@ from PyQt5.Qsci import *
 # Logger Setup #
 ################
 
-
 appTitle = 'JSONitor'
 
 userName = getpass.getuser()
@@ -99,20 +98,24 @@ versionNumber = '1.0.1'
 formatter = logging.Formatter('%(asctime)s - %(name)s {} - {} - %(levelname)s - %(message)s'.format(versionNumber, userName))
 fh.setFormatter(formatter)
 
+# TODO Check this
 # reomoving prexisting handlers (NOTE may be unnecessary)
 for lHand in logger.handlers:
     logger.removeHandler(lHand)
 logger.addHandler(fh)
 
+# TODO Check this
 # NOTE May need to be set to 0 in order to prevent logging from bubbling up to maya's logger
 # logger.propagate=1
 logger.info('{} Initiated'.format(appTitle))
+
 
 ##################
 # JSON CONVERTER #
 ##################
 
 jsc = jst.JSONConverter(logger)
+
 
 ######
 # UI #
@@ -147,13 +150,11 @@ class JSONitorWindow(QMainWindow):
         self.statusMessageDur = 2
         self.doStyling = False
 
-
         self.initUI()
 
 
     def initUI(self):
         logger.debug('Initializing UI')
-
 
         # UI File
         uiFile = os.path.dirname(os.path.realpath(__file__)) + '\\JSONitor.ui'
@@ -318,7 +319,6 @@ class JSONitorWindow(QMainWindow):
             }
             ''')
 
-
         self.__monoFont = QFont('DejaVu Sans Mono')
         self.__monoFont.setPointSize(8)
 
@@ -348,6 +348,7 @@ class JSONitorWindow(QMainWindow):
 
         self.show()
 
+
     ###################
     # Widget / Window #
     ###################
@@ -365,6 +366,7 @@ class JSONitorWindow(QMainWindow):
         if self.doStyling:
             lineEdit.setStyleSheet(self.lineEditStyleSheet)
         return lineEdit
+
 
     def createTextEditor(self):
         logger.debug('Creating Text Editor')
@@ -537,7 +539,6 @@ class JSONitorWindow(QMainWindow):
         self.statusMessage('New tab')
 
     def getFile(self):
-
         dlg = QFileDialog()
         dlg.setFileMode(QFileDialog.AnyFile)
         # dlg.setFilter("JSON files (*.json)")
@@ -728,6 +729,7 @@ class JSONitorWindow(QMainWindow):
         logger.debug('Text to populate Text View with is {}'.format(txt))
         self.textEditors[self.tabInd()].setText(txt)
 
+
     @pyqtSlot(tuple)
     def setTextEditCursorPos(self, pos):
         logger.debug('Position to set text cursor is {}'.format(pos))
@@ -751,6 +753,7 @@ class JSONitorWindow(QMainWindow):
     def treeViewExpandAll(self):
         logger.debug('Expanding Tree View')
         self.treeViews[self.tabInd()].expandAll()
+
 
     ####################
     # Helper Functions #
@@ -969,7 +972,6 @@ class JSONitorWindow(QMainWindow):
     #     #the file does not exists but write privileges are given
     # else:
     #     #can not write there
-
 
 
 class TextAutoBraceThread(QThread):
