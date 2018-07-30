@@ -38,7 +38,6 @@ TREE VIEW
 expand/collapse buttons
 add lengths and indexing
 icons for types
-arrow buttons for switching views
 duplicate
 insert
 remove
@@ -71,6 +70,8 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.Qsci import *
+
+import qtawesome as qta
 
 
 ################
@@ -149,8 +150,8 @@ class JSONitorWindow(QMainWindow):
         self.waitTime = 0.05
         self.sortKeys = False
         jsc.setSortKeys(self.sortKeys)
-        self.statusMessageDur = 2
         self.doStyling = False
+        self.statusMessageDur = 2
         self.errorDuration = 5
         self.warningDuration = 2.5
 
@@ -503,30 +504,70 @@ class JSONitorWindow(QMainWindow):
         return treeView
 
 
+    def createToolButton(self, btnUse):
+        logger.debug('Creating Tool Button')
+        toolButton = QToolButton()
+        # toolButton = QPButton()
+        if btnUse == 'left':
+            toolButton.setIcon(qta.icon('fa.arrow-circle-left'))
+            toolButton.clicked.connect(self.updateTextFromTreeView)
+            toolButton.setToolTip('Updates Text based upon Text View.\n Note that warnings will be produced in the status bar if the process fails.')
+        elif btnUse == 'right':
+            toolButton.setIcon(qta.icon('fa.arrow-circle-right'))
+            toolButton.clicked.connect(self.updateTreeViewFromText)
+            toolButton.setToolTip('Updates Tree View based upon Text.\n Note that warnings will be produced in the status bar if the process fails.')
+        elif btnUse == 'autoUpdate':
+            toolButton.setIcon(qta.icon('fa.recycle'))
+            toolButton.setCheckable(True)
+            toolButton.setChecked(self.autoUpdateViews)
+            toolButton.clicked.connect(self.toggleAutoUpdateViews)
+            toolButton.setToolTip('Auto Update - toggles the automatic update of text and tree views when one is edited.\n Note that warnings will be produced in the status bar if the process fails.')
+
+        return toolButton
+
+
+    def createHorizSpacer(self):
+        return QSplitter()
+
+
     def createPage(self, *contents):
         logger.debug('Creating page')
         page = QWidget()
         vbox = QVBoxLayout()
+        toolbar = QHBoxLayout()
         hbox = QHBoxLayout()
         # TODO fix to allow for specific ordering
         for lyt, c in contents:
             if lyt == 'v':
                 vbox.addWidget(c)
-            else:
+            elif lyt == 'h':
                 hbox.addWidget(c)
+            elif lyt == 't':
+                toolbar.addWidget(c)
+        vbox.addLayout(toolbar)
         vbox.addLayout(hbox)
 
         page.setLayout(vbox)
         return page
 
 
-    def addPage(self):
+    def addPage(self, setFocusOn=True):
         logger.debug('Adding page')
-        self.pages.append( self.createPage( ('v', self.createLineEdit()), ('h', self.createTextEditor()), ('h', self.createTreeView())) )
+        self.pages.append( self.createPage(
+                                            ('v', self.createLineEdit()),
+                                            ('t', self.createHorizSpacer()),
+                                            ('t', self.createToolButton('left')),
+                                            ('t', self.createToolButton('autoUpdate')),
+                                            ('t', self.createToolButton('right')),
+                                            ('t', self.createHorizSpacer()),
+                                            ('h', self.createTextEditor()),
+                                            ('h', self.createTreeView()))
+                                            )
         tabName = os.path.splitext(os.path.basename(self.lineEdits[-1].text()))[0]
         self.tabs.addTab( self.pages[-1] , tabName )
         self.tabs.setCurrentIndex( len(self.pages)-1 )
-        self.textEditors[self.tabInd()].setFocus()
+        if setFocusOn:
+            self.textEditors[self.tabInd()].setFocus()
 
 
     def closeWindow(self):
@@ -562,12 +603,12 @@ class JSONitorWindow(QMainWindow):
             self.openFile(filenames[0])
 
 
-    def openFile(self, filename):
+    def openFile(self, filename, setFocusOn=True):
         if filename in self.files:
             self.tabs.setCurrentIndex(self.files.index(filename))
         else:
             logger.debug('File not found in current tabs. Opening new tab.')
-            self.addPage()
+            self.addPage(setFocusOn=setFocusOn)
             self.lineEdits[self.tabInd()].setText(filename)
             if os.path.isfile(filename):
                 with open(filename, 'r', encoding='utf-8-sig') as f:
@@ -672,14 +713,15 @@ class JSONitorWindow(QMainWindow):
 
 
     def onTabReopen(self):
-        # TODO fix this not being retriggerable in succession anymore?
         logger.info('Attempting to reopen the last closed tab.')
         reopening = True
         while reopening:
             if self.recentlyClosedFiles:
                 filename = self.recentlyClosedFiles[-1]
                 if os.path.isfile(filename):
-                    self.openFile(filename)
+                    # Not setting focus to text edit in order to
+                    # be able to continue to reopen closed tabs without switching focus
+                    self.openFile(filename, setFocusOn=False)
                     self.statusMessage('Reopened {}'.format(filename))
                     reopening = False
                     del self.recentlyClosedFiles[-1]
@@ -748,10 +790,18 @@ class JSONitorWindow(QMainWindow):
     # Setters #
     ###########
 
-    @pyqtSlot(str)
-    def setTextEditText(self, txt):
-        logger.debug('Text to populate Text View with is {}'.format(txt))
-        self.textEditors[self.tabInd()].setText(txt)
+    @pyqtSlot()
+    def setTextEditText(self):
+        try:
+            tabInd = self.tabInd()
+            itemModel = self.itemModels[tabInd]
+            itemList = itemModel.itemList()
+            txt = jsc.getJSONPretty(jsc.getDictFromLists(itemList))
+            logger.debug('Text to populate Text View with is {}'.format(txt))
+            self.textEditors[tabInd].setText(txt)
+        except ValueError as vErr:
+            logger.warn('Unable to retrieve JSON from Tree View because of ValueError: {}'.format(vErr))
+            self.statusMessage('WARNING: Unable to update Text based upon Tree View. Ensure that the Tree View would result in valid JSON. See log for details', 1, doLog=False)
 
 
     @pyqtSlot(tuple)
@@ -787,6 +837,9 @@ class JSONitorWindow(QMainWindow):
         return self.tabs.currentIndex()
 
 
+    def toggleAutoUpdateViews(self):
+        self.autoUpdateViews = not self.autoUpdateViews
+
     def updateTreeViewFromText(self):
         tabIndex = self.tabInd()
         textEdit = self.textEditors[tabIndex]
@@ -816,6 +869,7 @@ class JSONitorWindow(QMainWindow):
 
     def treeViewChanged(self, itm):
         if self.autoUpdateViews:
+            # TODO add an "undo" here first
             self.updateTextFromTreeView()
             self.updateTreeViewFromText()
 
@@ -1042,7 +1096,7 @@ class TreeViewUpdateThread(QThread):
     treeViewExpandAllSignal = pyqtSignal()
     statusSignal = pyqtSignal(str, int)
 
-    def __init__(self, textEdit, waitTime=0.1):
+    def __init__(self, textEdit, waitTime=0.06):
         QThread.__init__(self)
         self.textEdit = textEdit
         self.waitTime = waitTime
@@ -1052,6 +1106,7 @@ class TreeViewUpdateThread(QThread):
 
     def run(self):
         time.sleep(self.waitTime)
+        # TODO move this to slot?
         newDict = jsc.getDict(self.textEdit.text())
         if newDict:
             self.itemModelClearSignal.emit()
@@ -1063,7 +1118,7 @@ class TreeViewUpdateThread(QThread):
 
 
 class TextUpdateThread(QThread):
-    textEditSignal = pyqtSignal(str)
+    textEditSignal = pyqtSignal()
     statusSignal = pyqtSignal(str, int)
 
     def __init__(self, itemModel, waitTime = 0.05):
@@ -1076,13 +1131,16 @@ class TextUpdateThread(QThread):
 
     def run(self):
         time.sleep(self.waitTime)
-        try:
-            newJSON = jsc.getJSONPretty(jsc.getDictFromLists(self.itemModel.itemList()))
-            self.textEditSignal.emit(newJSON)
-            self.statusSignal.emit('Updated Text based upon Tree View', 0)
-        except ValueError as vErr:
-            logger.warn('Unable to retrieve JSON from Tree View because of ValueError: {}'.format(vErr))
-            self.statusSignal.emit('WARNING: Unable to update Text based upon Tree View. Ensure that the Tree View would result in valid JSON. See log for details', 1)
+        self.textEditSignal.emit()
+        # try:
+        #     itemList = self.itemModel.itemList()
+        #     print(itemList)
+        #     newJSON = jsc.getJSONPretty(jsc.getDictFromLists(itemList))
+        #     self.textEditSignal.emit(newJSON)
+        #     self.statusSignal.emit('Updated Text based upon Tree View', 0)
+        # except ValueError as vErr:
+        #     logger.warn('Unable to retrieve JSON from Tree View because of ValueError: {}'.format(vErr))
+        #     self.statusSignal.emit('WARNING: Unable to update Text based upon Tree View. Ensure that the Tree View would result in valid JSON. See log for details', 1)
 
 
 class StandardItemModel(QStandardItemModel):

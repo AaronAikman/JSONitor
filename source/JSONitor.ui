@@ -27,7 +27,7 @@
     <property name="bottomMargin">
      <number>0</number>
     </property>
-    <item row="1" column="0">
+    <item row="2" column="0">
      <layout class="QVBoxLayout" name="verticalLayout_2">
       <item>
        <layout class="QHBoxLayout" name="horizontalLayout">
@@ -48,7 +48,7 @@
       </item>
      </layout>
     </item>
-    <item row="0" column="0">
+    <item row="1" column="0">
      <widget class="QLineEdit" name="filepathLineEdit">
       <property name="cursorMoveStyle">
        <enum>Qt::VisualMoveStyle</enum>

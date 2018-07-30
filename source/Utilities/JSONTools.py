@@ -57,6 +57,9 @@ class JSONConverter:
     def __filterValue(self, v):
         """ Converts potential json strings to dict values
         """
+
+        if isinstance(v, list):
+            v = v[0]
         if isinstance(v, tuple):
             _, v = v
         if v in ['None', 'null']:
@@ -105,6 +108,9 @@ class JSONConverter:
         else:
             # if not a set of pairs, return list immediately after checking values
             if len(arr) == 1:
-                return self.__filterValue(arr[0][1])
+                if not isinstance(arr[0][1], (list, tuple)):
+                    return self.__filterValue(arr[0][1])
+                else:
+                    self.getDictFromLists(arr[0][1])
             return [self.__filterValue(x) for x in arr]
         return dic
