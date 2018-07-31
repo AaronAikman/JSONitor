@@ -11,7 +11,7 @@ add an About
 save temp files/autosave
 Use json file for ui colors/settings
 *find and replace
-Undo stack
+proper Undo stack
 copy to clipboard
 Feedback/email
 select Occurence
@@ -139,11 +139,18 @@ class JSONitorWindow(QMainWindow):
         self.files = []
         self.itemModels = []
         self.treeViews = []
+        self.undoButtons = []
+        self.redoButtons = []
 
         # History
         self.recentlyClosedFiles = []
         self.recentlyAccessedTabs = []
         self.bookmarks = {}
+        # TODO finish this
+        self.undoStack = QUndoStack(self)
+        self.textHistory = []
+        self.textHistoryIndex = None
+        self.textHistoryMax = 50
 
         # Settings
         self.title = 'JSONitor (JSON Editor by Aaron Aikman)'
@@ -181,6 +188,8 @@ class JSONitorWindow(QMainWindow):
         self.actionQuit.triggered.connect(self.closeWindow)
         self.actionUpdate_Tree_View.triggered.connect(self.updateTreeViewFromText)
         self.actionUpdate_Text.triggered.connect(self.updateTextFromTreeView)
+        self.actionUndo.triggered.connect(self.undoTextChange)
+        self.actionRedo.triggered.connect(self.redoTextChange)
         # self.filepathLineEdit.returnPressed.connect(self.lineEditEnter)
 
         # Go options
@@ -567,6 +576,22 @@ class JSONitorWindow(QMainWindow):
             toolButton.setIcon(qta.icon('fa.file'))
             toolButton.clicked.connect(self.newFile)
             toolButton.setToolTip('New File (Ctrl+N)')
+        elif btnUse == 'undo':
+            toolButton.setIcon(qta.icon('fa.undo'))
+            toolButton.clicked.connect(self.undoTextChange)
+            toolButton.setEnabled(False)
+            self.undoButtons.append(toolButton)
+            toolButton.setToolTip('Undo Text Change (Ctrl+Shift+Z)')
+        elif btnUse == 'redo':
+            toolButton.setIcon(qta.icon('fa.repeat'))
+            toolButton.clicked.connect(self.redoTextChange)
+            toolButton.setEnabled(False)
+            self.redoButtons.append(toolButton)
+            toolButton.setToolTip('Redo Text Change (Ctrl+Shift+Y)')
+        elif btnUse == 'settings':
+            toolButton.setIcon(qta.icon('fa.cog'))
+            # toolButton.clicked.connect(self.redoTextChange)
+            toolButton.setToolTip('Settings (Ctrl+Comma)')
 
         return toolButton
 
@@ -600,9 +625,12 @@ class JSONitorWindow(QMainWindow):
         logger.debug('Adding page')
         self.pages.append( self.createPage(
                                             ('v', self.createLineEdit()),
+                                            ('t', self.createToolButton('settings')),
                                             ('t', self.createToolButton('new')),
                                             ('t', self.createToolButton('open')),
                                             ('t', self.createToolButton('save')),
+                                            ('t', self.createToolButton('undo')),
+                                            ('t', self.createToolButton('redo')),
                                             ('t', self.createToolButton('compact')),
                                             ('t', self.createToolButton('format')),
                                             ('t', self.createToolButton('sortText')),
@@ -759,6 +787,8 @@ class JSONitorWindow(QMainWindow):
         del self.files[tabIndex]
         del self.itemModels[tabIndex]
         del self.treeViews[tabIndex]
+        del self.undoButtons[tabIndex]
+        del self.redoButtons[tabIndex]
 
 
     def onTabGo(self, ind):
@@ -908,6 +938,7 @@ class JSONitorWindow(QMainWindow):
 
 
     def updateTextFromTreeView(self):
+        self.storeTextBackup()
         tabIndex = self.tabInd()
         itemModel = self.itemModels[tabIndex]
         t = TextUpdateThread(itemModel)
@@ -917,6 +948,7 @@ class JSONitorWindow(QMainWindow):
 
 
     def updateTextAutoBrace(self, txt, pos):
+        self.storeTextBackup()
         t = TextAutoBraceThread(txt, pos)
         t.textEditSignal.connect(self.setTextEditText)
         t.textEditCursorPosSignal.connect(self.setTextEditCursorPos)
@@ -937,7 +969,6 @@ class JSONitorWindow(QMainWindow):
 
     def treeViewChanged(self, itm):
         if self.autoUpdateViews:
-            # TODO add an "undo" here first
             self.updateTextFromTreeView()
             # self.updateTreeViewFromText()
 
@@ -956,6 +987,7 @@ class JSONitorWindow(QMainWindow):
             itemClone.setText('New ({})'.format(count))
             count += 1
         itemParent.insertRow((item.row() + 1), itemClone)
+        self.refreshTree()
 
 
     def getTreeItemAndAppend(self):
@@ -974,15 +1006,7 @@ class JSONitorWindow(QMainWindow):
                 newItem.setEditable(False)
                 newItem.setIcon(qta.icon('fa.list-ul'))
         item.appendRow(newItem)
-
-
-    def getTreeItemAndDuplicate(self):
-        itemModel = self.itemModels[self.tabInd()]
-        treeView = self.treeViews[self.tabInd()]
-        indexes = treeView.selectedIndexes()
-        ind = indexes[0]
-        item = itemModel.itemFromIndex(ind)
-        self.duplicateTreeItemChildren(item)
+        self.refreshTree()
 
 
     def getTreeItemAndRemove(self):
@@ -993,6 +1017,16 @@ class JSONitorWindow(QMainWindow):
         item = itemModel.itemFromIndex(ind)
         itemParent = item.parent()
         itemParent.removeRow(item.row())
+        self.refreshTree()
+
+
+    def getTreeItemAndDuplicate(self):
+        itemModel = self.itemModels[self.tabInd()]
+        treeView = self.treeViews[self.tabInd()]
+        indexes = treeView.selectedIndexes()
+        ind = indexes[0]
+        item = itemModel.itemFromIndex(ind)
+        self.duplicateTreeItemChildren(item)
 
 
     def duplicateTreeItemChildren(self, sourceItem, targetItem=None):
@@ -1015,7 +1049,7 @@ class JSONitorWindow(QMainWindow):
                 # if child.hasChildren():
                 self.duplicateTreeItemChildren(child, itemClone)
 
-        self.treeViewChanged(itm=None)
+        self.refreshTree()
 
 
     def openContextMenu(self, position):
@@ -1053,6 +1087,53 @@ class JSONitorWindow(QMainWindow):
         #     menu.addAction(self.tr("Edit object"))
 
         menu.exec_(treeView.viewport().mapToGlobal(position))
+
+
+    def refreshTree(self):
+        self.treeViewChanged(itm=None)
+
+
+    def undoTextChange(self):
+        # TODO fix double undo
+        if self.textHistory and self.textHistoryIndex:
+            if self.textHistoryIndex == (len(self.textHistory) - 1):
+                self.storeTextBackup(setIndex=False)
+            self.textHistoryIndex -= 1
+            self.textEditors[self.tabInd()].setText(self.textHistory[self.textHistoryIndex])
+            self.setUndoRedoButtons()
+
+
+    def redoTextChange(self):
+        if self.textHistory:
+            if self.textHistoryIndex < (len(self.textHistory) - 1):
+                self.textHistoryIndex += 1
+                self.textEditors[self.tabInd()].setText(self.textHistory[self.textHistoryIndex])
+            self.setUndoRedoButtons()
+
+
+    def setUndoRedoButtons(self):
+        if self.textHistoryIndex < (len(self.textHistory) - 1):
+            for redoButton in self.redoButtons:
+                redoButton.setEnabled(True)
+        if self.textHistoryIndex:
+            for undoButton in self.undoButtons:
+                undoButton.setEnabled(True)
+        else:
+            for undoButton in self.undoButtons:
+                undoButton.setEnabled(False)
+
+
+    def storeTextBackup(self, setIndex=True):
+        self.textHistory.append(self.textEditors[self.tabInd()].text())
+        if len(self.textHistory) > self.textHistoryMax:
+            del self.textHistory[0]
+        if setIndex:
+            self.textHistoryIndex = (len(self.textHistory) - 1)
+            # self.setUndoRedoButtons()
+            for redoButton in self.redoButtons:
+                redoButton.setEnabled(False)
+            for undoButton in self.undoButtons:
+                undoButton.setEnabled(True)
 
 
     @pyqtSlot(str, int)
@@ -1242,12 +1323,21 @@ class JSONitorWindow(QMainWindow):
     #     cursor.setPosition(end, QtGui.QTextCursor.KeepAnchor)
     #     self.TextEdit.setTextCursor(cursor)
 
-    # if os.path.exists(filePath):
-    #     #the file is there
-    # elif os.access(os.path.dirname(filePath), os.W_OK):
-    #     #the file does not exists but write privileges are given
-    # else:
-    #     #can not write there
+
+    # class CommandDelete(QUndoCommand):
+
+    # def __init__(self, listWidget, item, row, description):
+    #     super(CommandDelete, self).__init__(description)
+    #     self.listWidget = listWidget
+    #     self.string = item.text()
+    #     self.row = row
+
+    # def redo(self):
+    #     item = self.listWidget.takeItem(self.row)
+    #     del item
+
+    # def undo(self):
+    #     self.listWidget.insertItem(self.row, self.string)
 
 
 class TextAutoBraceThread(QThread):
