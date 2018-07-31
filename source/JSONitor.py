@@ -48,6 +48,7 @@ Unit tests (open files, store compact json, convert to tree view and back, check
 remove index from bookmarks when tab closed and shift other tab indices
 Format Commenting
 make sure var names are consistent/descriptive
+http://jmespath.org/tutorial.html ?
 
 NOTE
 Shift Alt Drag to multi select
@@ -72,6 +73,7 @@ from PyQt5.QtGui import *
 from PyQt5.Qsci import *
 
 import qtawesome as qta
+import pyperclip
 
 
 ################
@@ -495,8 +497,11 @@ class JSONitorWindow(QMainWindow):
         treeView.setHeaderHidden(True)
         treeView.setDragDropMode(QAbstractItemView.InternalMove)
         treeView.expandAll()
-        # treeView.collapseAll()
         self.treeViews.append(treeView)
+
+        treeView.setContextMenuPolicy(Qt.CustomContextMenu)
+        treeView.customContextMenuRequested.connect(self.openContextMenu)
+        # itemModel.setHorizontalHeaderLabels([self.tr("Tree View")])
 
         if self.doStyling:
             treeView.setStyleSheet(self.treeViewStyleSheet)
@@ -517,11 +522,51 @@ class JSONitorWindow(QMainWindow):
             toolButton.clicked.connect(self.updateTreeViewFromText)
             toolButton.setToolTip('Updates Tree View based upon Text.\n Note that warnings will be produced in the status bar if the process fails.')
         elif btnUse == 'autoUpdate':
-            toolButton.setIcon(qta.icon('fa.recycle'))
+            toolButton.setIcon(qta.icon('fa.circle-o-notch'))
             toolButton.setCheckable(True)
             toolButton.setChecked(self.autoUpdateViews)
             toolButton.clicked.connect(self.toggleAutoUpdateViews)
             toolButton.setToolTip('Auto Update - toggles the automatic update of text and tree views when one is edited.\n Note that warnings will be produced in the status bar if the process fails.')
+        elif btnUse == 'format':
+            toolButton.setIcon(qta.icon('fa.align-left'))
+            toolButton.clicked.connect(self.updateTreeViewFromText)
+            toolButton.setToolTip('Format Text View into pretty-printed JSON')
+        elif btnUse == 'compact':
+            toolButton.setIcon(qta.icon('fa.align-justify'))
+            toolButton.clicked.connect(self.updateTreeViewFromText)
+            toolButton.setToolTip('Format Text View into compact JSON with no whitespace')
+        elif btnUse == 'sortText':
+            toolButton.setIcon(qta.icon('fa.sort-alpha-asc'))
+            toolButton.clicked.connect(self.updateTreeViewFromText)
+            toolButton.setToolTip('Sort Text Alphabetically.')
+        elif btnUse == 'sortTree':
+            toolButton.setIcon(qta.icon('fa.sort-alpha-asc'))
+            toolButton.clicked.connect(self.updateTreeViewFromText)
+            toolButton.setToolTip('Sort Tree View Alphabetically')
+        elif btnUse == 'copy':
+            toolButton.setIcon(qta.icon('fa.clipboard'))
+            toolButton.clicked.connect(self.copyTextToClipboard)
+            toolButton.setToolTip('Copy Text from Text Edit')
+        elif btnUse == 'expand':
+            toolButton.setIcon(qta.icon('fa.expand'))
+            toolButton.clicked.connect(self.treeViewExpand)
+            toolButton.setToolTip('Expand Tree View')
+        elif btnUse == 'collapse':
+            toolButton.setIcon(qta.icon('fa.compress'))
+            toolButton.clicked.connect(self.treeViewCollapse)
+            toolButton.setToolTip('Collapse Tree View')
+        elif btnUse == 'save':
+            toolButton.setIcon(qta.icon('fa.floppy-o'))
+            toolButton.clicked.connect(self.saveFile)
+            toolButton.setToolTip('Save')
+        elif btnUse == 'open':
+            toolButton.setIcon(qta.icon('fa.folder-open'))
+            toolButton.clicked.connect(self.getFile)
+            toolButton.setToolTip('Open File')
+        elif btnUse == 'new':
+            toolButton.setIcon(qta.icon('fa.file'))
+            toolButton.clicked.connect(self.newFile)
+            toolButton.setToolTip('New File')
 
         return toolButton
 
@@ -555,11 +600,21 @@ class JSONitorWindow(QMainWindow):
         logger.debug('Adding page')
         self.pages.append( self.createPage(
                                             ('v', self.createLineEdit()),
+                                            ('t', self.createToolButton('new')),
+                                            ('t', self.createToolButton('open')),
+                                            ('t', self.createToolButton('save')),
+                                            ('t', self.createToolButton('compact')),
+                                            ('t', self.createToolButton('format')),
+                                            ('t', self.createToolButton('sortText')),
+                                            ('t', self.createToolButton('copy')),
                                             ('t', self.createHorizSpacer()),
                                             ('t', self.createToolButton('left')),
                                             ('t', self.createToolButton('autoUpdate')),
                                             ('t', self.createToolButton('right')),
                                             ('t', self.createHorizSpacer()),
+                                            ('t', self.createToolButton('expand')),
+                                            ('t', self.createToolButton('collapse')),
+                                            ('t', self.createToolButton('sortTree')),
                                             ('h', self.createTextEditor()),
                                             ('h', self.createTreeView()))
                                             )
@@ -801,7 +856,7 @@ class JSONitorWindow(QMainWindow):
             self.textEditors[tabInd].setText(txt)
         except ValueError as vErr:
             logger.warn('Unable to retrieve JSON from Tree View because of ValueError: {}'.format(vErr))
-            self.statusMessage('WARNING: Unable to update Text based upon Tree View. Ensure that the Tree View would result in valid JSON. See log for details', 1, doLog=False)
+            self.statusMessage('Unable to update Text based upon Tree View. Ensure that the Tree View would result in valid JSON. See log for details', 1, doLog=False)
 
 
     @pyqtSlot(tuple)
@@ -840,6 +895,7 @@ class JSONitorWindow(QMainWindow):
     def toggleAutoUpdateViews(self):
         self.autoUpdateViews = not self.autoUpdateViews
 
+
     def updateTreeViewFromText(self):
         tabIndex = self.tabInd()
         textEdit = self.textEditors[tabIndex]
@@ -867,11 +923,111 @@ class JSONitorWindow(QMainWindow):
         t.start()
 
 
+    def treeViewExpand(self):
+        self.treeViews[self.tabInd()].expandAll()
+
+
+    def treeViewCollapse(self):
+        self.treeViews[self.tabInd()].collapseAll()
+
+
+    def copyTextToClipboard(self):
+        pyperclip.copy(self.textEditors[self.tabInd()].text())
+
+
     def treeViewChanged(self, itm):
         if self.autoUpdateViews:
             # TODO add an "undo" here first
             self.updateTextFromTreeView()
-            self.updateTreeViewFromText()
+            # self.updateTreeViewFromText()
+
+
+    def getTreeItemAndDuplicate(self):
+        itemModel = self.itemModels[self.tabInd()]
+        treeView = self.treeViews[self.tabInd()]
+        indexes = treeView.selectedIndexes()
+        ind = indexes[0]
+        if len(indexes) > 0:
+
+            level = 0
+            index = indexes[0]
+            while index.parent().isValid():
+                index = index.parent()
+                level += 1
+        # print(level)
+        item = itemModel.itemFromIndex(ind)
+        self.duplicateTreeItemChildren(item)
+        # itemParent = item.parent()
+        # itemClone = item.clone()
+        # itemParent.appendRow(itemClone)
+
+
+    def duplicateTreeItemChildren(self, sourceItem, targetItem=None):
+        itemClone = sourceItem.clone()
+        itemModel = self.itemModels[self.tabInd()]
+        if targetItem:
+            targetItem.appendRow(itemClone)
+        else:
+            count = 1
+            while len(itemModel.findItems(itemClone.text(), flags=Qt.MatchRecursive)) > 0:
+                itemClone.setText('{} ({})'.format(itemClone.text(), count))
+                count += 1
+            if sourceItem.parent():
+                sourceItem.parent().appendRow(itemClone)
+            else:
+                itemModel.invisibleRootItem().appendRow(itemClone)
+        if sourceItem.hasChildren():
+            for row in range(sourceItem.rowCount()):
+                child = sourceItem.child(row, 0)
+                # if child.hasChildren():
+                self.duplicateTreeItemChildren(child, itemClone)
+
+        self.treeViewChanged(itm=None)
+
+        # col = item.column()
+        # print(row)
+        # print(col)
+        # print(itemClone.text())
+        # itemModel.insertRow(3, itemClone)
+        # itemModel.insertRow(level, itemClone)
+        # itemModel.insertRow(row, itemClone)
+        # itemModel.appendRow(itemClone)
+        # print(self.treeItemPosition.x())
+        # print(itemModel.item(self.treeItemPosition.x(), self.treeItemPosition.y()))
+
+
+
+    def openContextMenu(self, position):
+        treeView = self.treeViews[self.tabInd()]
+        # indexes = treeView.selectedIndexes()
+        # if len(indexes) > 0:
+
+        #     level = 0
+        #     index = indexes[0]
+        #     while index.parent().isValid():
+        #         index = index.parent()
+        #         level += 1
+
+        menu = QMenu()
+        # TODO Add this
+        duplicateAction = menu.addAction(self.tr("Insert"))
+        duplicateAction.triggered.connect(self.getTreeItemAndDuplicate)
+        duplicateAction = menu.addAction(self.tr("Duplicate"))
+        duplicateAction.triggered.connect(self.getTreeItemAndDuplicate)
+        # TODO Add this
+        duplicateAction = menu.addAction(self.tr("Remove"))
+        duplicateAction.triggered.connect(self.getTreeItemAndDuplicate)
+        # self.treeItemPosition = position
+        # if level == 0:
+        #     menu.addAction(self.tr("Edit person"))
+        # elif level == 1:
+        #     menu.addAction(self.tr("Edit object/container"))
+        # elif level == 2:
+        #     menu.addAction(self.tr("Edit object"))
+        # else:
+        #     menu.addAction(self.tr("Edit object"))
+
+        menu.exec_(treeView.viewport().mapToGlobal(position))
 
 
     @pyqtSlot(str, int)
@@ -1171,8 +1327,8 @@ class StandardItemModel(QStandardItemModel):
                 if isinstance(children, list) and any([isinstance(x, dict) for x in children]): # TODO optimize
                     childItem = QStandardItem(str(ind))
                     childItem.setEditable(False)
+                    childItem.setIcon(qta.icon('fa.list-ul'))
                     childItem.setFont(self.__fadeFont)
-                    # TODO use setIcon to show array
                     parent.appendRow(childItem)
                     self.populateTree(child, childItem)
                 else:

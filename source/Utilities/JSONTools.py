@@ -57,7 +57,6 @@ class JSONConverter:
     def __filterValue(self, v):
         """ Converts potential json strings to dict values
         """
-
         if isinstance(v, list):
             v = v[0]
         if isinstance(v, tuple):
