@@ -516,11 +516,11 @@ class JSONitorWindow(QMainWindow):
         if btnUse == 'left':
             toolButton.setIcon(qta.icon('fa.arrow-circle-left'))
             toolButton.clicked.connect(self.updateTextFromTreeView)
-            toolButton.setToolTip('Updates Text based upon Text View.\n Note that warnings will be produced in the status bar if the process fails.')
+            toolButton.setToolTip('Updates Text based upon Text View.\n Note that warnings will be produced in the status bar if the process fails. (Ctrl+U)')
         elif btnUse == 'right':
             toolButton.setIcon(qta.icon('fa.arrow-circle-right'))
             toolButton.clicked.connect(self.updateTreeViewFromText)
-            toolButton.setToolTip('Updates Tree View based upon Text.\n Note that warnings will be produced in the status bar if the process fails.')
+            toolButton.setToolTip('Updates Tree View based upon Text.\n Note that warnings will be produced in the status bar if the process fails. (Ctrl+I)')
         elif btnUse == 'autoUpdate':
             toolButton.setIcon(qta.icon('fa.circle-o-notch'))
             toolButton.setCheckable(True)
@@ -558,15 +558,15 @@ class JSONitorWindow(QMainWindow):
         elif btnUse == 'save':
             toolButton.setIcon(qta.icon('fa.floppy-o'))
             toolButton.clicked.connect(self.saveFile)
-            toolButton.setToolTip('Save')
+            toolButton.setToolTip('Save (Ctrl+S')
         elif btnUse == 'open':
             toolButton.setIcon(qta.icon('fa.folder-open'))
             toolButton.clicked.connect(self.getFile)
-            toolButton.setToolTip('Open File')
+            toolButton.setToolTip('Open File (Ctrl+O)')
         elif btnUse == 'new':
             toolButton.setIcon(qta.icon('fa.file'))
             toolButton.clicked.connect(self.newFile)
-            toolButton.setToolTip('New File')
+            toolButton.setToolTip('New File (Ctrl+N)')
 
         return toolButton
 
@@ -942,24 +942,57 @@ class JSONitorWindow(QMainWindow):
             # self.updateTreeViewFromText()
 
 
+    def getTreeItemAndInsert(self):
+        itemModel = self.itemModels[self.tabInd()]
+        treeView = self.treeViews[self.tabInd()]
+        indexes = treeView.selectedIndexes()
+        ind = indexes[0]
+        item = itemModel.itemFromIndex(ind)
+        itemParent = item.parent()
+        itemClone = item.clone()
+        count = 1
+        itemClone.setText('New ({})'.format(count))
+        while itemModel.findItems(itemClone.text(), flags=Qt.MatchRecursive):
+            itemClone.setText('New ({})'.format(count))
+            count += 1
+        itemParent.insertRow((item.row() + 1), itemClone)
+
+
+    def getTreeItemAndAppend(self):
+        itemModel = self.itemModels[self.tabInd()]
+        treeView = self.treeViews[self.tabInd()]
+        indexes = treeView.selectedIndexes()
+        ind = indexes[0]
+        item = itemModel.itemFromIndex(ind)
+        count = 1
+        newItem = QStandardItem('New ({})'.format(count))
+        while itemModel.findItems(newItem.text(), flags=Qt.MatchRecursive):
+            newItem.setText('New ({})'.format(count))
+            count += 1
+        if item.hasChildren():
+            if not item.child(0).isEditable():
+                newItem.setEditable(False)
+                newItem.setIcon(qta.icon('fa.list-ul'))
+        item.appendRow(newItem)
+
+
     def getTreeItemAndDuplicate(self):
         itemModel = self.itemModels[self.tabInd()]
         treeView = self.treeViews[self.tabInd()]
         indexes = treeView.selectedIndexes()
         ind = indexes[0]
-        if len(indexes) > 0:
-
-            level = 0
-            index = indexes[0]
-            while index.parent().isValid():
-                index = index.parent()
-                level += 1
-        # print(level)
         item = itemModel.itemFromIndex(ind)
         self.duplicateTreeItemChildren(item)
-        # itemParent = item.parent()
-        # itemClone = item.clone()
-        # itemParent.appendRow(itemClone)
+
+
+    def getTreeItemAndRemove(self):
+        itemModel = self.itemModels[self.tabInd()]
+        treeView = self.treeViews[self.tabInd()]
+        indexes = treeView.selectedIndexes()
+        ind = indexes[0]
+        item = itemModel.itemFromIndex(ind)
+        itemParent = item.parent()
+        itemParent.removeRow(item.row())
 
 
     def duplicateTreeItemChildren(self, sourceItem, targetItem=None):
@@ -973,9 +1006,9 @@ class JSONitorWindow(QMainWindow):
                 itemClone.setText('{} ({})'.format(itemClone.text(), count))
                 count += 1
             if sourceItem.parent():
-                sourceItem.parent().appendRow(itemClone)
+                sourceItem.parent().insertRow((sourceItem.row() + 1),itemClone)
             else:
-                itemModel.invisibleRootItem().appendRow(itemClone)
+                itemModel.invisibleRootItem().insertRow((sourceItem.row() + 1),itemClone)
         if sourceItem.hasChildren():
             for row in range(sourceItem.rowCount()):
                 child = sourceItem.child(row, 0)
@@ -983,18 +1016,6 @@ class JSONitorWindow(QMainWindow):
                 self.duplicateTreeItemChildren(child, itemClone)
 
         self.treeViewChanged(itm=None)
-
-        # col = item.column()
-        # print(row)
-        # print(col)
-        # print(itemClone.text())
-        # itemModel.insertRow(3, itemClone)
-        # itemModel.insertRow(level, itemClone)
-        # itemModel.insertRow(row, itemClone)
-        # itemModel.appendRow(itemClone)
-        # print(self.treeItemPosition.x())
-        # print(itemModel.item(self.treeItemPosition.x(), self.treeItemPosition.y()))
-
 
 
     def openContextMenu(self, position):
@@ -1009,14 +1030,18 @@ class JSONitorWindow(QMainWindow):
         #         level += 1
 
         menu = QMenu()
-        # TODO Add this
         duplicateAction = menu.addAction(self.tr("Insert"))
-        duplicateAction.triggered.connect(self.getTreeItemAndDuplicate)
+        duplicateAction.triggered.connect(self.getTreeItemAndInsert)
+
+        duplicateAction = menu.addAction(self.tr("Append"))
+        duplicateAction.triggered.connect(self.getTreeItemAndAppend)
+
         duplicateAction = menu.addAction(self.tr("Duplicate"))
         duplicateAction.triggered.connect(self.getTreeItemAndDuplicate)
-        # TODO Add this
+
         duplicateAction = menu.addAction(self.tr("Remove"))
-        duplicateAction.triggered.connect(self.getTreeItemAndDuplicate)
+        duplicateAction.triggered.connect(self.getTreeItemAndRemove)
+
         # self.treeItemPosition = position
         # if level == 0:
         #     menu.addAction(self.tr("Edit person"))
