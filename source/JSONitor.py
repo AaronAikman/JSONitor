@@ -19,7 +19,11 @@ select all Occurences
 Ctrl up and down to scroll
 ability to resize pane middle
 *add line edit to panes for searching (itemModel.findItems)
-close window, ask save if any tab has unsaved changes
+*close window, ask save if any tab has unsaved changes
+save tabs on close
+*fix undo
+set vars on tab switch to avoid having to get index all the time?
+*undo stack for tree view
 
 LINE EDIT
 Up down arrows to search through dir
@@ -147,7 +151,7 @@ class JSONitorWindow(QMainWindow):
         self.recentlyAccessedTabs = []
         self.bookmarks = {}
         # TODO finish this
-        self.undoStack = QUndoStack(self)
+        # self.undoStack = QUndoStack(self)
         self.textHistory = []
         self.textHistoryIndex = None
         self.textHistoryMax = 50
@@ -538,19 +542,19 @@ class JSONitorWindow(QMainWindow):
             toolButton.setToolTip('Auto Update - toggles the automatic update of text and tree views when one is edited.\n Note that warnings will be produced in the status bar if the process fails.')
         elif btnUse == 'format':
             toolButton.setIcon(qta.icon('fa.align-left'))
-            toolButton.clicked.connect(self.updateTreeViewFromText)
+            toolButton.clicked.connect(self.formatText)
             toolButton.setToolTip('Format Text View into pretty-printed JSON')
         elif btnUse == 'compact':
             toolButton.setIcon(qta.icon('fa.align-justify'))
-            toolButton.clicked.connect(self.updateTreeViewFromText)
+            toolButton.clicked.connect(self.compactText)
             toolButton.setToolTip('Format Text View into compact JSON with no whitespace')
         elif btnUse == 'sortText':
             toolButton.setIcon(qta.icon('fa.sort-alpha-asc'))
-            toolButton.clicked.connect(self.updateTreeViewFromText)
+            toolButton.clicked.connect(self.sortText)
             toolButton.setToolTip('Sort Text Alphabetically.')
         elif btnUse == 'sortTree':
             toolButton.setIcon(qta.icon('fa.sort-alpha-asc'))
-            toolButton.clicked.connect(self.updateTreeViewFromText)
+            toolButton.clicked.connect(self.sortTree)
             toolButton.setToolTip('Sort Tree View Alphabetically')
         elif btnUse == 'copy':
             toolButton.setIcon(qta.icon('fa.clipboard'))
@@ -759,10 +763,6 @@ class JSONitorWindow(QMainWindow):
                 self.statusMessage('User does not have write permissions to save to {}'.format(filename), error=True)
 
 
-
-
-
-
     def saveAs(self):
         self.saveFile(1)
 
@@ -876,7 +876,7 @@ class JSONitorWindow(QMainWindow):
     ###########
 
     @pyqtSlot()
-    def setTextEditText(self):
+    def getTextEditTextFromTree(self):
         try:
             tabInd = self.tabInd()
             itemModel = self.itemModels[tabInd]
@@ -885,8 +885,13 @@ class JSONitorWindow(QMainWindow):
             logger.debug('Text to populate Text View with is {}'.format(txt))
             self.textEditors[tabInd].setText(txt)
         except ValueError as vErr:
-            logger.warn('Unable to retrieve JSON from Tree View because of ValueError: {}'.format(vErr))
+            logger.warning('Unable to retrieve JSON from Tree View because of ValueError: {}'.format(vErr))
             self.statusMessage('Unable to update Text based upon Tree View. Ensure that the Tree View would result in valid JSON. See log for details', 1, doLog=False)
+
+
+    @pyqtSlot(str)
+    def setTextEditText(self, txt):
+        self.textEditors[self.tabInd()].setText(txt)
 
 
     @pyqtSlot(tuple)
@@ -942,7 +947,7 @@ class JSONitorWindow(QMainWindow):
         tabIndex = self.tabInd()
         itemModel = self.itemModels[tabIndex]
         t = TextUpdateThread(itemModel)
-        t.textEditSignal.connect(self.setTextEditText)
+        t.textEditFromTreeSignal.connect(self.getTextEditTextFromTree)
         t.statusSignal.connect(self.statusMessage)
         t.start()
 
@@ -1094,10 +1099,11 @@ class JSONitorWindow(QMainWindow):
 
 
     def undoTextChange(self):
-        # TODO fix double undo
-        if self.textHistory and self.textHistoryIndex:
+        if self.textHistory:
             if self.textHistoryIndex == (len(self.textHistory) - 1):
-                self.storeTextBackup(setIndex=False)
+                if self.textEditors[self.tabInd()].text() != self.textHistory[self.textHistoryIndex]:
+                    self.storeTextBackup(setIndex=False)
+                    self.textHistoryIndex += 1
             self.textHistoryIndex -= 1
             self.textEditors[self.tabInd()].setText(self.textHistory[self.textHistoryIndex])
             self.setUndoRedoButtons()
@@ -1115,6 +1121,10 @@ class JSONitorWindow(QMainWindow):
         if self.textHistoryIndex < (len(self.textHistory) - 1):
             for redoButton in self.redoButtons:
                 redoButton.setEnabled(True)
+        else:
+            for redoButton in self.redoButtons:
+                redoButton.setEnabled(False)
+
         if self.textHistoryIndex:
             for undoButton in self.undoButtons:
                 undoButton.setEnabled(True)
@@ -1124,6 +1134,8 @@ class JSONitorWindow(QMainWindow):
 
 
     def storeTextBackup(self, setIndex=True):
+        # TODO Store history for each tab
+        # TODO set undo redo buttons enabled when switching tabs
         self.textHistory.append(self.textEditors[self.tabInd()].text())
         if len(self.textHistory) > self.textHistoryMax:
             del self.textHistory[0]
@@ -1153,7 +1165,7 @@ class JSONitorWindow(QMainWindow):
         elif mode == 1:
             prefix = 'WARNING: '
             if doLog:
-                logger.warn(msg)
+                logger.warning(msg)
             dur = self.warningDuration
         else:
             if doLog:
@@ -1171,6 +1183,36 @@ class JSONitorWindow(QMainWindow):
 
     def replaceStrIndex(self, text, index=0, replacement=''):
         return '{}{}{}'.format(text[:index], replacement, text[index+1:])
+
+
+    def sortText(self):
+        jsc.sortKeys = True
+        self.formatText()
+        jsc.sortKeys = False
+
+
+    def sortTree(self):
+        itemModel = self.itemModels[self.tabInd()]
+        itemModel.sort(0)
+        self.refreshTree()
+
+
+    def formatText(self):
+        self.storeTextBackup()
+        textEdit = self.textEditors[self.tabInd()]
+        dictText = jsc.getDict(textEdit.text())
+        if dictText:
+            prettyText = jsc.getJSONPretty(dictText)
+            textEdit.setText(prettyText)
+
+
+    def compactText(self):
+        self.storeTextBackup()
+        textEdit = self.textEditors[self.tabInd()]
+        dictText = jsc.getDict(textEdit.text())
+        if dictText:
+            compactText = jsc.getJSONCompact(dictText)
+            textEdit.setText(compactText)
 
 
     def textEditChanged(self):
@@ -1195,11 +1237,37 @@ class JSONitorWindow(QMainWindow):
                         lastTypedChar = line[p[1]:(p[1]+1)]
                         nextChar = line[(p[1]+1):(p[1]+2)]
 
-            # TODO fix bug where you can backspace there characters
+
             autoContinued = False
             autoContinueOptions = ['}', ']', '"']
+            autoReplaceOptions = ['{', '[', '"']
+
+            # TODO fix this
+            # Checking for all but " in order to remove end character when start character missing
+            # for i in range(len(autoContinueOptions)-1):
+            #     if autoContinueOptions[i] in textLines[p[0]][p[1]:]:
+            #         if not autoReplaceOptions[i] in textLines[p[0]][:p[1]]:
+            #             print('hi')
+            #             textLines[p[0]] = textLines[p[0]].replace(autoContinueOptions[i], '')
+            #             text = '\n'.join(textLines)
+            #             p = tuple([p[0], (p[1])])
+            #             self.updateTextAutoBrace(text, p)
+            #             autoContinued = True
+
+
             if nextChar:
                 if nextChar in autoContinueOptions:
+                    print('l', lastTypedChar, 'n', nextChar)
+                    print(textLines[p[0]].replace(' ', 'x'))
+                    # if lastTypedChar not in autoReplaceOptions:
+                    # if all([not x in autoReplaceOptions for x in textLines[p[0]]]):
+                    #     print('hi')
+                    #     textLines[p[0]] = self.replaceStrIndex(textLines[p[0]], p[1]+1, '')
+                    #     text = '\n'.join(textLines)
+                    #     p = tuple([p[0], (p[1] + 1)])
+                    #     self.updateTextAutoBrace(text, p)
+                    #     autoContinued = True
+                    # else:
                     proceed = False
                     if lastTypedChar == '}' and nextChar == '}':
                         proceed = True
@@ -1215,20 +1283,31 @@ class JSONitorWindow(QMainWindow):
                         autoContinued = True
 
             if not autoContinued: # Avoiding double typing
-                autoReplaceOptions = ['{', '[', '"']
+
                 if lastTypedChar in autoReplaceOptions:
+                    proceed = True
+
                     replaceStr = lastTypedChar
+
                     if lastTypedChar == '{':
                         replaceStr = r'{}'
                     elif lastTypedChar == '[':
                         replaceStr = '[]'
                     elif lastTypedChar == '"':
+                        # TODO fix inability to backspace first " if there are two in a row
                         replaceStr = '""'
 
                     textLines[p[0]] = self.replaceStrIndex(textLines[p[0]], p[1], replaceStr)
-                    text = '\n'.join(textLines)
-                    p = tuple([p[0], (p[1] + 1)])
-                    self.updateTextAutoBrace(text, p)
+
+                    if lastTypedChar == '"':
+                        # Do not add " if not appropriate
+                        if textLines[p[0]].count(lastTypedChar) % 2:
+                            proceed = False
+
+                    if proceed:
+                        text = '\n'.join(textLines)
+                        p = tuple([p[0], (p[1] + 1)])
+                        self.updateTextAutoBrace(text, p)
 
 
     def updateLineColInfo(self):
@@ -1389,7 +1468,7 @@ class TreeViewUpdateThread(QThread):
 
 
 class TextUpdateThread(QThread):
-    textEditSignal = pyqtSignal()
+    textEditFromTreeSignal = pyqtSignal()
     statusSignal = pyqtSignal(str, int)
 
     def __init__(self, itemModel, waitTime = 0.05):
@@ -1402,15 +1481,15 @@ class TextUpdateThread(QThread):
 
     def run(self):
         time.sleep(self.waitTime)
-        self.textEditSignal.emit()
+        self.textEditFromTreeSignal.emit()
         # try:
         #     itemList = self.itemModel.itemList()
         #     print(itemList)
         #     newJSON = jsc.getJSONPretty(jsc.getDictFromLists(itemList))
-        #     self.textEditSignal.emit(newJSON)
+        #     self.textEditFromTreeSignal.emit(newJSON)
         #     self.statusSignal.emit('Updated Text based upon Tree View', 0)
         # except ValueError as vErr:
-        #     logger.warn('Unable to retrieve JSON from Tree View because of ValueError: {}'.format(vErr))
+        #     logger.warning('Unable to retrieve JSON from Tree View because of ValueError: {}'.format(vErr))
         #     self.statusSignal.emit('WARNING: Unable to update Text based upon Tree View. Ensure that the Tree View would result in valid JSON. See log for details', 1)
 
 
