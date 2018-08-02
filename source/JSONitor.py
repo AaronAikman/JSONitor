@@ -24,6 +24,7 @@ save tabs on close
 *fix undo
 set vars on tab switch to avoid having to get index all the time?
 *undo stack for tree view
+go to file
 
 LINE EDIT
 Up down arrows to search through dir
@@ -68,7 +69,7 @@ import json
 import time
 import logging
 import getpass
-import Utilities.JSONTools as jst
+import re
 
 from PyQt5 import uic
 from PyQt5.QtWidgets import *
@@ -78,6 +79,8 @@ from PyQt5.Qsci import *
 
 import qtawesome as qta
 import pyperclip
+
+import Utilities.JSONTools as jst
 
 
 ################
@@ -145,6 +148,7 @@ class JSONitorWindow(QMainWindow):
         self.treeViews = []
         self.undoButtons = []
         self.redoButtons = []
+        self.searchBars = []
 
         # History
         self.recentlyClosedFiles = []
@@ -159,6 +163,8 @@ class JSONitorWindow(QMainWindow):
         # Settings
         self.title = 'JSONitor (JSON Editor by Aaron Aikman)'
         self.autoUpdateViews = False
+        self.findMatchCase = False
+        self.findWholeWord = False
         self.autoCompleteBraces = True
         self.waitTime = 0.05
         self.sortKeys = False
@@ -194,6 +200,8 @@ class JSONitorWindow(QMainWindow):
         self.actionUpdate_Text.triggered.connect(self.updateTextFromTreeView)
         self.actionUndo.triggered.connect(self.undoTextChange)
         self.actionRedo.triggered.connect(self.redoTextChange)
+        self.actionFind.triggered.connect(self.setFocusToFind)
+        # self.actionFind.triggered.connect(self.highlightCurrentLine)
         # self.filepathLineEdit.returnPressed.connect(self.lineEditEnter)
 
         # Go options
@@ -339,6 +347,14 @@ class JSONitorWindow(QMainWindow):
             }
             ''')
 
+        self.searchBarStyleSheet = ('''
+            QsciScintilla {
+                border: 2px solid rgb(63, 63, 63);
+                color: rgb(255, 255, 255);
+                background-color: rgb(128, 128, 128);
+            }
+            ''')
+
         self.__monoFont = QFont('DejaVu Sans Mono')
         self.__monoFont.setPointSize(8)
 
@@ -388,6 +404,19 @@ class JSONitorWindow(QMainWindow):
         lineEdit.setText(tmpFileName)
         if self.doStyling:
             lineEdit.setStyleSheet(self.lineEditStyleSheet)
+        return lineEdit
+
+
+    def createSearchBar(self):
+        logger.debug('Creating Search bar')
+        lineEdit = QLineEdit()
+        # lineEdit.width(50)
+        lineEdit.setFont(self.__monoFont)
+        lineEdit.textChanged.connect(self.findInText)
+        lineEdit.returnPressed.connect(self.findInTextAndFocus)
+        self.searchBars.append(lineEdit)
+        if self.doStyling:
+            lineEdit.setStyleSheet(self.searchBarStyleSheet)
         return lineEdit
 
 
@@ -594,8 +623,20 @@ class JSONitorWindow(QMainWindow):
             toolButton.setToolTip('Redo Text Change (Ctrl+Shift+Y)')
         elif btnUse == 'settings':
             toolButton.setIcon(qta.icon('fa.cog'))
-            # toolButton.clicked.connect(self.redoTextChange)
+            toolButton.clicked.connect(self.redoTextChange)
             toolButton.setToolTip('Settings (Ctrl+Comma)')
+        elif btnUse == 'searchCase':
+            toolButton.setIcon(qta.icon('ei.fontsize'))
+            toolButton.setCheckable(True)
+            toolButton.setChecked(self.findMatchCase)
+            toolButton.clicked.connect(self.toggleFindMatchCase)
+            toolButton.setToolTip('Match case when searching')
+        elif btnUse == 'searchWholeWord':
+            toolButton.setIcon(qta.icon('ei.font'))
+            toolButton.setCheckable(True)
+            toolButton.setChecked(self.findWholeWord)
+            toolButton.clicked.connect(self.toggleFindWholeWord)
+            toolButton.setToolTip('Match whole word when searching')
 
         return toolButton
 
@@ -644,6 +685,9 @@ class JSONitorWindow(QMainWindow):
                                             ('t', self.createToolButton('autoUpdate')),
                                             ('t', self.createToolButton('right')),
                                             ('t', self.createHorizSpacer()),
+                                            ('t', self.createSearchBar()),
+                                            ('t', self.createToolButton('searchCase')),
+                                            ('t', self.createToolButton('searchWholeWord')),
                                             ('t', self.createToolButton('expand')),
                                             ('t', self.createToolButton('collapse')),
                                             ('t', self.createToolButton('sortTree')),
@@ -789,6 +833,7 @@ class JSONitorWindow(QMainWindow):
         del self.treeViews[tabIndex]
         del self.undoButtons[tabIndex]
         del self.redoButtons[tabIndex]
+        del self.searchBars[tabIndex]
 
 
     def onTabGo(self, ind):
@@ -927,8 +972,30 @@ class JSONitorWindow(QMainWindow):
         return self.tabs.currentIndex()
 
 
+    def getTextEdit(self):
+        return self.textEditors[self.tabInd()]
+
+
+    def getLineEdit(self):
+        return self.lineEditors[self.tabInd()]
+
+    def getSearchBar(self):
+        return self.searchBars[self.tabInd()]
+
+
     def toggleAutoUpdateViews(self):
         self.autoUpdateViews = not self.autoUpdateViews
+        self.findInText()
+
+
+    def toggleFindMatchCase(self):
+        self.findMatchCase = not self.findMatchCase
+        self.findInText()
+
+
+    def toggleFindWholeWord(self):
+        self.findWholeWord = not self.findWholeWord
+        self.findInText()
 
 
     def updateTreeViewFromText(self):
@@ -1057,6 +1124,83 @@ class JSONitorWindow(QMainWindow):
         self.refreshTree()
 
 
+    def findInText(self):
+        # TODO option for select single/find next
+        searchText = self.getSearchBar().text()
+        textEdit = self.getTextEdit()
+        text = textEdit.text()
+        if not self.findMatchCase:
+            searchText = searchText.lower()
+            text = text.lower()
+
+        foundAtLeastOne = False
+        if searchText and searchText in text:
+            if self.findWholeWord:
+                searchRegex = re.compile(r"\b{st}\b".format(st = searchText))
+            else:
+                searchRegex = re.compile(r"{st}".format(st = searchText))
+            for row, line in enumerate(text.split('\n')):
+                grouping = searchRegex.finditer(line)
+                if not grouping:
+                    textEdit.SendScintilla(textEdit.SCI_CLEARSELECTIONS)
+                else:
+                    for match in grouping:
+                        span = match.span()
+                        start = textEdit.positionFromLineIndex(row, span[0])
+                        end = textEdit.positionFromLineIndex(row, span[1])
+                        self.setTextSelection(start, end, foundAtLeastOne)
+                        foundAtLeastOne = True
+        else:
+            textEdit.SendScintilla(textEdit.SCI_CLEARSELECTIONS)
+
+
+    def findInTextAndFocus(self):
+        self.findInText()
+        self.setFocusToTextEdit()
+
+
+    # text cursor functions
+    def getTextCursor(self):
+        return self.textEditors[self.tabInd()].cursor()
+
+
+    def setTextCursorPos(self, value):
+        tc = self.getTextCursor()
+        tc.setPos(value, QTextCursor.KeepAnchor)
+        self.textEditors[self.tabInd()].setCursor(tc)
+
+
+    def getTextCursorPos(self):
+        return self.getTextCursor().position()
+
+
+    def getTextSelection(self):
+        cursor = self.getTextCursor()
+        return cursor.selectionStart(), cursor.selectionEnd()
+
+
+    def setTextSelection(self, start, end, add=False):
+        textEdit = self.getTextEdit()
+        # offset = ed.positionFromLineIndex(0, 7)
+        # textEdit.SendScintilla(textEdit.SCI_MULTIPLESELECTADDNEXT, start, end)
+        if add:
+            textEdit.SendScintilla(textEdit.SCI_ADDSELECTION, start, end)
+        else:
+            textEdit.SendScintilla(textEdit.SCI_SETSELECTION, start, end)
+        # cursor = self.getTextCursor()
+        # cursor.setPos(start[0], start[1])
+        # cursor.setPos(end[0], end[1], QTextCursor.KeepAnchor)
+        # textEdit.setCursorPosition(start[0], start[1])
+        # TODO extra selections?
+        # textEdit.setFocus()
+        # self.textEditors[self.tabInd()].setCursorPosition(end[0], end[1], QTextCursor.KeepAnchor)
+        # self.textEditors[self.tabInd()].setTextCursor(cursor)
+
+    def clearTextSelection(self):
+        textEdit = self.getTextEdit()
+        textEdit.SendScintilla(textEdit.SCI_SETSELECTION)
+
+
     def openContextMenu(self, position):
         treeView = self.treeViews[self.tabInd()]
         # indexes = treeView.selectedIndexes()
@@ -1148,6 +1292,16 @@ class JSONitorWindow(QMainWindow):
                 undoButton.setEnabled(True)
 
 
+    def setFocusToFind(self):
+        searchBar = self.getSearchBar()
+        searchBar.setText('')
+        searchBar.setFocus()
+
+
+    def setFocusToTextEdit(self):
+        self.textEditors[self.tabInd()].setFocus()
+
+
     @pyqtSlot(str, int)
     def statusMessage(self, msg, mode=0, doLog=True, dur=1):
         """
@@ -1201,7 +1355,7 @@ class JSONitorWindow(QMainWindow):
         self.storeTextBackup()
         textEdit = self.textEditors[self.tabInd()]
         dictText = jsc.getDict(textEdit.text())
-        if dictText:
+        if dictText: 
             prettyText = jsc.getJSONPretty(dictText)
             textEdit.setText(prettyText)
 
@@ -1417,6 +1571,27 @@ class JSONitorWindow(QMainWindow):
 
     # def undo(self):
     #     self.listWidget.insertItem(self.row, self.string)
+
+    # def highlightCurrentLine(self):
+        # pass
+        # textEdit = self.getTextEdit()
+        # offset = ed.positionFromLineIndex(0, 7)
+        # textEdit.SendScintilla(textEditor.SCI_SETSELECTION, 1)
+
+        # extraSelections = []
+
+        # # if not self.isReadOnly():
+        # selection = QTextEdit.ExtraSelection()
+
+        # lineColor = QColor(Qt.yellow).lighter(160)
+
+        # selection.format.setBackground(lineColor)
+        # selection.format.setProperty(QTextFormat.FullWidthSelection, QVariant(True))
+        # # selection.cursor = textEdit.cursor()
+        # # selection.cursor.clearSelection()
+        # extraSelections.append(selection)
+
+        # textEdit.setExtraSelections(extraSelections)
 
 
 class TextAutoBraceThread(QThread):
