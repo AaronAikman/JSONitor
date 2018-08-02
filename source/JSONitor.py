@@ -154,11 +154,10 @@ class JSONitorWindow(QMainWindow):
         self.recentlyClosedFiles = []
         self.recentlyAccessedTabs = []
         self.bookmarks = {}
-        # TODO finish this
-        # self.undoStack = QUndoStack(self)
         self.textHistory = []
         self.textHistoryIndex = None
         self.textHistoryMax = 50
+        self.findNextInd = 0
 
         # Settings
         self.title = 'JSONitor (JSON Editor by Aaron Aikman)'
@@ -201,6 +200,7 @@ class JSONitorWindow(QMainWindow):
         self.actionUndo.triggered.connect(self.undoTextChange)
         self.actionRedo.triggered.connect(self.redoTextChange)
         self.actionFind.triggered.connect(self.setFocusToFind)
+        self.actionFind_Next.triggered.connect(self.findNextInText)
         # self.actionFind.triggered.connect(self.highlightCurrentLine)
         # self.filepathLineEdit.returnPressed.connect(self.lineEditEnter)
 
@@ -410,7 +410,7 @@ class JSONitorWindow(QMainWindow):
     def createSearchBar(self):
         logger.debug('Creating Search bar')
         lineEdit = QLineEdit()
-        # lineEdit.width(50)
+        lineEdit.setFixedWidth(140)
         lineEdit.setFont(self.__monoFont)
         lineEdit.textChanged.connect(self.findInText)
         lineEdit.returnPressed.connect(self.findInTextAndFocus)
@@ -503,6 +503,7 @@ class JSONitorWindow(QMainWindow):
         # textEditor.setFont(self.__monoFont)
 
         textEditor.textChanged.connect(self.textEditChanged)
+        textEditor.selectionChanged.connect(self.textEditSelectionChanged)
         textEditor.cursorPositionChanged.connect(self.updateLineColInfo)
 
         # Drops
@@ -510,6 +511,9 @@ class JSONitorWindow(QMainWindow):
 
         # Multiline Editing
         textEditor.SendScintilla(textEditor.SCI_SETADDITIONALSELECTIONTYPING, 1)
+
+        # textEditor.SendScintilla(textEditor.SCI_BRACEHIGHLIGHTINDICATOR, True)
+
 
         textEditor.setMarginSensitivity(0, True)
         textEditor.setMarginSensitivity(1, True)
@@ -525,8 +529,8 @@ class JSONitorWindow(QMainWindow):
 
     def createTreeView(self):
         logger.debug('Creating Tree View')
-        # tree = json.loads(self.textEditors[self.tabInd()].text())
-        sampleJSON = jsc.getDict(self.textEditors[self.tabInd()].text())
+        # tree = json.loads(self.getTextEdit().text())
+        sampleJSON = jsc.getDict(self.getTextEdit().text())
 
         itemModel = StandardItemModel()
         if sampleJSON:
@@ -558,11 +562,11 @@ class JSONitorWindow(QMainWindow):
         if btnUse == 'left':
             toolButton.setIcon(qta.icon('fa.arrow-circle-left'))
             toolButton.clicked.connect(self.updateTextFromTreeView)
-            toolButton.setToolTip('Updates Text based upon Text View.\n Note that warnings will be produced in the status bar if the process fails. (Ctrl+U)')
+            toolButton.setToolTip('Updates Text based upon Text View.\nNote that warnings will be produced in the status bar if the process fails. (Ctrl+U)')
         elif btnUse == 'right':
             toolButton.setIcon(qta.icon('fa.arrow-circle-right'))
             toolButton.clicked.connect(self.updateTreeViewFromText)
-            toolButton.setToolTip('Updates Tree View based upon Text.\n Note that warnings will be produced in the status bar if the process fails. (Ctrl+I)')
+            toolButton.setToolTip('Updates Tree View based upon Text.\nNote that warnings will be produced in the status bar if the process fails. (Ctrl+I)')
         elif btnUse == 'autoUpdate':
             toolButton.setIcon(qta.icon('fa.circle-o-notch'))
             toolButton.setCheckable(True)
@@ -572,15 +576,15 @@ class JSONitorWindow(QMainWindow):
         elif btnUse == 'format':
             toolButton.setIcon(qta.icon('fa.align-left'))
             toolButton.clicked.connect(self.formatText)
-            toolButton.setToolTip('Format Text View into pretty-printed JSON')
+            toolButton.setToolTip('Pretty Print: Format Text View into pretty-printed JSON')
         elif btnUse == 'compact':
             toolButton.setIcon(qta.icon('fa.align-justify'))
             toolButton.clicked.connect(self.compactText)
-            toolButton.setToolTip('Format Text View into compact JSON with no whitespace')
+            toolButton.setToolTip('Compact: Format Text View into compact JSON with no whitespace')
         elif btnUse == 'sortText':
             toolButton.setIcon(qta.icon('fa.sort-alpha-asc'))
             toolButton.clicked.connect(self.sortText)
-            toolButton.setToolTip('Sort Text Alphabetically.')
+            toolButton.setToolTip('Sort Text Alphabetically')
         elif btnUse == 'sortTree':
             toolButton.setIcon(qta.icon('fa.sort-alpha-asc'))
             toolButton.clicked.connect(self.sortTree)
@@ -698,7 +702,7 @@ class JSONitorWindow(QMainWindow):
         self.tabs.addTab( self.pages[-1] , tabName )
         self.tabs.setCurrentIndex( len(self.pages)-1 )
         if setFocusOn:
-            self.textEditors[self.tabInd()].setFocus()
+            self.getTextEdit().setFocus()
 
 
     def closeWindow(self):
@@ -744,7 +748,7 @@ class JSONitorWindow(QMainWindow):
             if os.path.isfile(filename):
                 with open(filename, 'r', encoding='utf-8-sig') as f:
                     data = f.read()
-                    self.textEditors[self.tabInd()].setText(data)
+                    self.getTextEdit().setText(data)
 
                 self.files[self.tabInd()] = filename
                 logger.debug('Open Files: {}'.format(self.files))
@@ -755,7 +759,7 @@ class JSONitorWindow(QMainWindow):
                 self.updateTreeViewFromText()
                 self.statusMessage('Opened file: {}'.format(filename))
             else:
-                self.statusMessage('The following file does not exist: {}'.format(filename), error=True)
+                self.statusMessage('The following file does not exist: {}'.format(filename), 2)
 
     def saveFile(self, doDialog = 0):
         tabInd = self.tabInd()
@@ -784,7 +788,7 @@ class JSONitorWindow(QMainWindow):
             if not os.path.exists(os.path.dirname(filename)):
                 os.makedirs(os.path.dirname(filename))
 
-            if os.access(os.path.dirname(filePath), os.W_OK):
+            if os.access(os.path.dirname(filename), os.W_OK):
                 with open(filename, 'w') as f:
                     f.write(newText)
                 self.setWindowTitle('{} - {}'.format(self.title, os.path.basename(filename)))
@@ -804,7 +808,7 @@ class JSONitorWindow(QMainWindow):
                 self.onTabGo(tabInd)
 
             else:
-                self.statusMessage('User does not have write permissions to save to {}'.format(filename), error=True)
+                self.statusMessage('User does not have write permissions to save to {}'.format(filename), 2)
 
 
     def saveAs(self):
@@ -891,7 +895,7 @@ class JSONitorWindow(QMainWindow):
     #############
 
     def onBookmarkSet(self, ind):
-        self.bookmarks[ind] = [self.files[self.tabInd()], self.textEditors[self.tabInd()].getCursorPosition()]
+        self.bookmarks[ind] = [self.files[self.tabInd()], self.getTextEdit().getCursorPosition()]
         self.statusMessage('Set bookmark {}'.format(ind))
 
 
@@ -911,14 +915,14 @@ class JSONitorWindow(QMainWindow):
     def goToLine(self):
         pos, ok = QInputDialog.getInt(self,"Go to Line","Enter line number")
         if ok:
-            self.textEditors[self.tabInd()].setCursorPosition((pos-1), 0)
-            self.textEditors[self.tabInd()].setFocus()
+            self.getTextEdit().setCursorPosition((pos-1), 0)
+            self.getTextEdit().setFocus()
             self.statusMessage('Jumped to line {}'.format(pos-1))
 
 
-    ###########
-    # Setters #
-    ###########
+    #########
+    # Slots #
+    #########
 
     @pyqtSlot()
     def getTextEditTextFromTree(self):
@@ -936,13 +940,13 @@ class JSONitorWindow(QMainWindow):
 
     @pyqtSlot(str)
     def setTextEditText(self, txt):
-        self.textEditors[self.tabInd()].setText(txt)
+        self.getTextEdit().setText(txt)
 
 
     @pyqtSlot(tuple)
     def setTextEditCursorPos(self, pos):
         logger.debug('Position to set text cursor is {}'.format(pos))
-        self.textEditors[self.tabInd()].setCursorPosition(pos[0], pos[1])
+        self.getTextEdit().setCursorPosition(pos[0], pos[1])
 
 
     @pyqtSlot()
@@ -961,41 +965,52 @@ class JSONitorWindow(QMainWindow):
     @pyqtSlot()
     def treeViewExpandAll(self):
         logger.debug('Expanding Tree View')
-        self.treeViews[self.tabInd()].expandAll()
+        self.getTreeView().expandAll()
 
 
-    ####################
-    # Helper Functions #
-    ####################
+    @pyqtSlot(str, int)
+    def statusMessage(self, msg, mode=0, doLog=True, dur=1):
+        """
+        Shows a message in the status bar and writes it to the log
+        mode = [info, warning, error]
+        dur = ms to show message in status bar for
+        """
+        dur = self.statusMessageDur if self.statusMessageDur else dur
+        prefix = 'INFO: '
+        if mode == 2:
+            prefix = 'ERROR: '
+            if doLog:
+                logger.error(msg)
+            dur = self.errorDuration
+        elif mode == 1:
+            prefix = 'WARNING: '
+            if doLog:
+                logger.warning(msg)
+            dur = self.warningDuration
+        else:
+            if doLog:
+                logger.info(msg)
 
-    def tabInd(self):
-        return self.tabs.currentIndex()
-
-
-    def getTextEdit(self):
-        return self.textEditors[self.tabInd()]
-
-
-    def getLineEdit(self):
-        return self.lineEditors[self.tabInd()]
-
-    def getSearchBar(self):
-        return self.searchBars[self.tabInd()]
-
-
-    def toggleAutoUpdateViews(self):
-        self.autoUpdateViews = not self.autoUpdateViews
-        self.findInText()
-
-
-    def toggleFindMatchCase(self):
-        self.findMatchCase = not self.findMatchCase
-        self.findInText()
+        dur *= 1000
+        self.statusbar.showMessage('{}{}'.format(prefix, msg), dur)
 
 
-    def toggleFindWholeWord(self):
-        self.findWholeWord = not self.findWholeWord
-        self.findInText()
+    ########
+    # Tree #
+    ########
+
+    def treeViewExpand(self):
+        self.getTreeView().expandAll()
+
+
+    def treeViewCollapse(self):
+        self.getTreeView().collapseAll()
+
+
+    def treeViewChanged(self, itm):
+        if self.autoUpdateViews:
+            self.updateTextFromTreeView()
+            # self.updateTreeViewFromText()
 
 
     def updateTreeViewFromText(self):
@@ -1009,45 +1024,9 @@ class JSONitorWindow(QMainWindow):
         t.start()
 
 
-    def updateTextFromTreeView(self):
-        self.storeTextBackup()
-        tabIndex = self.tabInd()
-        itemModel = self.itemModels[tabIndex]
-        t = TextUpdateThread(itemModel)
-        t.textEditFromTreeSignal.connect(self.getTextEditTextFromTree)
-        t.statusSignal.connect(self.statusMessage)
-        t.start()
-
-
-    def updateTextAutoBrace(self, txt, pos):
-        self.storeTextBackup()
-        t = TextAutoBraceThread(txt, pos)
-        t.textEditSignal.connect(self.setTextEditText)
-        t.textEditCursorPosSignal.connect(self.setTextEditCursorPos)
-        t.start()
-
-
-    def treeViewExpand(self):
-        self.treeViews[self.tabInd()].expandAll()
-
-
-    def treeViewCollapse(self):
-        self.treeViews[self.tabInd()].collapseAll()
-
-
-    def copyTextToClipboard(self):
-        pyperclip.copy(self.textEditors[self.tabInd()].text())
-
-
-    def treeViewChanged(self, itm):
-        if self.autoUpdateViews:
-            self.updateTextFromTreeView()
-            # self.updateTreeViewFromText()
-
-
     def getTreeItemAndInsert(self):
         itemModel = self.itemModels[self.tabInd()]
-        treeView = self.treeViews[self.tabInd()]
+        treeView = self.getTreeView()
         indexes = treeView.selectedIndexes()
         ind = indexes[0]
         item = itemModel.itemFromIndex(ind)
@@ -1064,7 +1043,7 @@ class JSONitorWindow(QMainWindow):
 
     def getTreeItemAndAppend(self):
         itemModel = self.itemModels[self.tabInd()]
-        treeView = self.treeViews[self.tabInd()]
+        treeView = self.getTreeView()
         indexes = treeView.selectedIndexes()
         ind = indexes[0]
         item = itemModel.itemFromIndex(ind)
@@ -1083,7 +1062,7 @@ class JSONitorWindow(QMainWindow):
 
     def getTreeItemAndRemove(self):
         itemModel = self.itemModels[self.tabInd()]
-        treeView = self.treeViews[self.tabInd()]
+        treeView = self.getTreeView()
         indexes = treeView.selectedIndexes()
         ind = indexes[0]
         item = itemModel.itemFromIndex(ind)
@@ -1094,7 +1073,7 @@ class JSONitorWindow(QMainWindow):
 
     def getTreeItemAndDuplicate(self):
         itemModel = self.itemModels[self.tabInd()]
-        treeView = self.treeViews[self.tabInd()]
+        treeView = self.getTreeView()
         indexes = treeView.selectedIndexes()
         ind = indexes[0]
         item = itemModel.itemFromIndex(ind)
@@ -1124,85 +1103,8 @@ class JSONitorWindow(QMainWindow):
         self.refreshTree()
 
 
-    def findInText(self):
-        # TODO option for select single/find next
-        searchText = self.getSearchBar().text()
-        textEdit = self.getTextEdit()
-        text = textEdit.text()
-        if not self.findMatchCase:
-            searchText = searchText.lower()
-            text = text.lower()
-
-        foundAtLeastOne = False
-        if searchText and searchText in text:
-            if self.findWholeWord:
-                searchRegex = re.compile(r"\b{st}\b".format(st = searchText))
-            else:
-                searchRegex = re.compile(r"{st}".format(st = searchText))
-            for row, line in enumerate(text.split('\n')):
-                grouping = searchRegex.finditer(line)
-                if not grouping:
-                    textEdit.SendScintilla(textEdit.SCI_CLEARSELECTIONS)
-                else:
-                    for match in grouping:
-                        span = match.span()
-                        start = textEdit.positionFromLineIndex(row, span[0])
-                        end = textEdit.positionFromLineIndex(row, span[1])
-                        self.setTextSelection(start, end, foundAtLeastOne)
-                        foundAtLeastOne = True
-        else:
-            textEdit.SendScintilla(textEdit.SCI_CLEARSELECTIONS)
-
-
-    def findInTextAndFocus(self):
-        self.findInText()
-        self.setFocusToTextEdit()
-
-
-    # text cursor functions
-    def getTextCursor(self):
-        return self.textEditors[self.tabInd()].cursor()
-
-
-    def setTextCursorPos(self, value):
-        tc = self.getTextCursor()
-        tc.setPos(value, QTextCursor.KeepAnchor)
-        self.textEditors[self.tabInd()].setCursor(tc)
-
-
-    def getTextCursorPos(self):
-        return self.getTextCursor().position()
-
-
-    def getTextSelection(self):
-        cursor = self.getTextCursor()
-        return cursor.selectionStart(), cursor.selectionEnd()
-
-
-    def setTextSelection(self, start, end, add=False):
-        textEdit = self.getTextEdit()
-        # offset = ed.positionFromLineIndex(0, 7)
-        # textEdit.SendScintilla(textEdit.SCI_MULTIPLESELECTADDNEXT, start, end)
-        if add:
-            textEdit.SendScintilla(textEdit.SCI_ADDSELECTION, start, end)
-        else:
-            textEdit.SendScintilla(textEdit.SCI_SETSELECTION, start, end)
-        # cursor = self.getTextCursor()
-        # cursor.setPos(start[0], start[1])
-        # cursor.setPos(end[0], end[1], QTextCursor.KeepAnchor)
-        # textEdit.setCursorPosition(start[0], start[1])
-        # TODO extra selections?
-        # textEdit.setFocus()
-        # self.textEditors[self.tabInd()].setCursorPosition(end[0], end[1], QTextCursor.KeepAnchor)
-        # self.textEditors[self.tabInd()].setTextCursor(cursor)
-
-    def clearTextSelection(self):
-        textEdit = self.getTextEdit()
-        textEdit.SendScintilla(textEdit.SCI_SETSELECTION)
-
-
     def openContextMenu(self, position):
-        treeView = self.treeViews[self.tabInd()]
+        treeView = self.getTreeView()
         # indexes = treeView.selectedIndexes()
         # if len(indexes) > 0:
 
@@ -1242,14 +1144,144 @@ class JSONitorWindow(QMainWindow):
         self.treeViewChanged(itm=None)
 
 
+    ########
+    # Text #
+    ########
+
+    def findInText(self, searchText=None, findNext=False, findNextInd=0):
+        # TODO option for select single/find next
+        if not searchText:
+            searchText = self.getSearchBar().text()
+        textEdit = self.getTextEdit()
+        text = textEdit.text()
+        if not self.findMatchCase:
+            searchText = searchText.lower()
+            text = text.lower()
+
+        foundAtLeastOne = False
+        if searchText and searchText in text:
+            if self.findWholeWord:
+                searchRegex = re.compile(r"\b{st}\b".format(st = searchText))
+            else:
+                searchRegex = re.compile(r"{st}".format(st = searchText))
+            for row, line in enumerate(text.split('\n')):
+                grouping = searchRegex.finditer(line)
+                if not grouping:
+                    textEdit.SendScintilla(textEdit.SCI_CLEARSELECTIONS)
+                else:
+                    proceed = True
+                    lastIndFound = 0
+                    if findNext:
+                        textEdit.SendScintilla(textEdit.SCI_CLEARSELECTIONS)
+                    for ind, match in enumerate(grouping):
+                        print(ind, findNextInd)
+                        if findNext:
+                            print(ind, findNextInd)
+                            # textEdit.SendScintilla(textEdit.SCI_CLEARSELECTIONS)
+                            proceed = True if ind == findNextInd else False
+                        if proceed:
+                            span = match.span()
+                            start = textEdit.positionFromLineIndex(row, span[0])
+                            end = textEdit.positionFromLineIndex(row, span[1])
+                            self.setTextSelection(start, end, foundAtLeastOne)
+                            foundAtLeastOne = True
+                        lastIndFound = ind
+                    # For restting find next if it is too high
+                    if self.findNextInd > lastIndFound - 1:
+                        self.findNextInd = -1
+        else:
+            textEdit.SendScintilla(textEdit.SCI_CLEARSELECTIONS)
+
+
+    def findNextInText(self):
+        self.findInText(findNext=True, findNextInd=self.findNextInd)
+        self.findNextInd += 1
+
+
+    def findInTextAndFocus(self):
+        # TODO fix not using findmethod
+        self.findInText()
+        self.setFocusToTextEdit()
+
+
+    def toggleFindMatchCase(self):
+        self.findMatchCase = not self.findMatchCase
+        self.findInText()
+
+
+    def toggleFindWholeWord(self):
+        self.findWholeWord = not self.findWholeWord
+        self.findInText()
+
+
+    # # text cursor functions
+    # def getTextCursor(self):
+    #     return self.getTextEdit().cursor()
+
+
+    # def setTextCursorPos(self, value):
+    #     tc = self.getTextCursor()
+    #     tc.setPos(value, QTextCursor.KeepAnchor)
+    #     self.getTextEdit().setCursor(tc)
+
+
+    # def getTextCursorPos(self):
+    #     return self.getTextCursor().position()
+
+
+    # def getTextSelection(self):
+    #     cursor = self.getTextCursor()
+    #     return cursor.selectionStart(), cursor.selectionEnd()
+
+
+    def setTextSelection(self, start, end, add=False):
+        textEdit = self.getTextEdit()
+        # offset = ed.positionFromLineIndex(0, 7)
+        # textEdit.SendScintilla(textEdit.SCI_MULTIPLESELECTADDNEXT, start, end)
+        if add:
+            textEdit.SendScintilla(textEdit.SCI_ADDSELECTION, start, end)
+        else:
+            textEdit.SendScintilla(textEdit.SCI_SETSELECTION, start, end)
+        # cursor = self.getTextCursor()
+        # cursor.setPos(start[0], start[1])
+        # cursor.setPos(end[0], end[1], QTextCursor.KeepAnchor)
+        # textEdit.setCursorPosition(start[0], start[1])
+        # TODO extra selections?
+        # textEdit.setFocus()
+        # self.getTextEdit().setCursorPosition(end[0], end[1], QTextCursor.KeepAnchor)
+        # self.getTextEdit().setTextCursor(cursor)
+
+    def clearTextSelection(self):
+        textEdit = self.getTextEdit()
+        textEdit.SendScintilla(textEdit.SCI_SETSELECTION)
+
+
+    def updateTextFromTreeView(self):
+        self.storeTextBackup()
+        tabIndex = self.tabInd()
+        itemModel = self.itemModels[tabIndex]
+        t = TextUpdateThread(itemModel)
+        t.textEditFromTreeSignal.connect(self.getTextEditTextFromTree)
+        t.statusSignal.connect(self.statusMessage)
+        t.start()
+
+
+    def updateTextAutoBrace(self, txt, pos):
+        self.storeTextBackup()
+        t = TextAutoBraceThread(txt, pos)
+        t.textEditSignal.connect(self.setTextEditText)
+        t.textEditCursorPosSignal.connect(self.setTextEditCursorPos)
+        t.start()
+
+
     def undoTextChange(self):
         if self.textHistory:
             if self.textHistoryIndex == (len(self.textHistory) - 1):
-                if self.textEditors[self.tabInd()].text() != self.textHistory[self.textHistoryIndex]:
+                if self.getTextEdit().text() != self.textHistory[self.textHistoryIndex]:
                     self.storeTextBackup(setIndex=False)
                     self.textHistoryIndex += 1
             self.textHistoryIndex -= 1
-            self.textEditors[self.tabInd()].setText(self.textHistory[self.textHistoryIndex])
+            self.getTextEdit().setText(self.textHistory[self.textHistoryIndex])
             self.setUndoRedoButtons()
 
 
@@ -1257,7 +1289,7 @@ class JSONitorWindow(QMainWindow):
         if self.textHistory:
             if self.textHistoryIndex < (len(self.textHistory) - 1):
                 self.textHistoryIndex += 1
-                self.textEditors[self.tabInd()].setText(self.textHistory[self.textHistoryIndex])
+                self.getTextEdit().setText(self.textHistory[self.textHistoryIndex])
             self.setUndoRedoButtons()
 
 
@@ -1280,7 +1312,7 @@ class JSONitorWindow(QMainWindow):
     def storeTextBackup(self, setIndex=True):
         # TODO Store history for each tab
         # TODO set undo redo buttons enabled when switching tabs
-        self.textHistory.append(self.textEditors[self.tabInd()].text())
+        self.textHistory.append(self.getTextEdit().text())
         if len(self.textHistory) > self.textHistoryMax:
             del self.textHistory[0]
         if setIndex:
@@ -1294,45 +1326,13 @@ class JSONitorWindow(QMainWindow):
 
     def setFocusToFind(self):
         searchBar = self.getSearchBar()
-        searchBar.setText('')
+        searchBar.clear()
+        # searchBar.setText('')
         searchBar.setFocus()
 
 
     def setFocusToTextEdit(self):
-        self.textEditors[self.tabInd()].setFocus()
-
-
-    @pyqtSlot(str, int)
-    def statusMessage(self, msg, mode=0, doLog=True, dur=1):
-        """
-        Shows a message in the status bar and writes it to the log
-        mode = [info, warning, error]
-        dur = ms to show message in status bar for
-        """
-        dur = self.statusMessageDur if self.statusMessageDur else dur
-        prefix = 'INFO: '
-        if mode == 2:
-            prefix = 'ERROR: '
-            if doLog:
-                logger.error(msg)
-            dur = self.errorDuration
-        elif mode == 1:
-            prefix = 'WARNING: '
-            if doLog:
-                logger.warning(msg)
-            dur = self.warningDuration
-        else:
-            if doLog:
-                logger.info(msg)
-
-        dur *= 1000
-        self.statusbar.showMessage('{}{}'.format(prefix, msg), dur)
-
-
-    def quickPrompt(self, title, message):
-        reply = QMessageBox.question(self, title,
-                        message, QMessageBox.Yes, QMessageBox.No)
-        return reply == QMessageBox.Yes
+        self.getTextEdit().setFocus()
 
 
     def replaceStrIndex(self, text, index=0, replacement=''):
@@ -1345,29 +1345,27 @@ class JSONitorWindow(QMainWindow):
         jsc.sortKeys = False
 
 
-    def sortTree(self):
-        itemModel = self.itemModels[self.tabInd()]
-        itemModel.sort(0)
-        self.refreshTree()
-
-
     def formatText(self):
         self.storeTextBackup()
-        textEdit = self.textEditors[self.tabInd()]
+        textEdit = self.getTextEdit()
         dictText = jsc.getDict(textEdit.text())
-        if dictText: 
+        if dictText:
             prettyText = jsc.getJSONPretty(dictText)
             textEdit.setText(prettyText)
 
 
     def compactText(self):
         self.storeTextBackup()
-        textEdit = self.textEditors[self.tabInd()]
+        textEdit = self.getTextEdit()
         dictText = jsc.getDict(textEdit.text())
         if dictText:
             compactText = jsc.getJSONCompact(dictText)
             textEdit.setText(compactText)
 
+
+    def textEditSelectionChanged(self):
+        textEdit = self.getTextEdit()
+        textEdit.SendScintilla(textEdit.SCI_CLEARSELECTIONS)
 
     def textEditChanged(self):
         tabName = '{}*'.format(os.path.splitext(os.path.basename(self.lineEdits[self.tabInd()].text()))[0])
@@ -1378,7 +1376,7 @@ class JSONitorWindow(QMainWindow):
 
         # AutoTyping
         if self.autoCompleteBraces:
-            textEdit = self.textEditors[self.tabInd()]
+            textEdit = self.getTextEdit()
             p = textEdit.getCursorPosition()
             text = textEdit.text()
             lastTypedChar = ''
@@ -1464,8 +1462,54 @@ class JSONitorWindow(QMainWindow):
                         self.updateTextAutoBrace(text, p)
 
 
+
+    ####################
+    # Helper Functions #
+    ####################
+
+    def tabInd(self):
+        return self.tabs.currentIndex()
+
+
+    def getTextEdit(self):
+        return self.textEditors[self.tabInd()]
+
+
+    def getLineEdit(self):
+        return self.lineEditors[self.tabInd()]
+
+
+    def getTreeView(self):
+        return self.treeViews[self.tabInd()]
+
+
+    def getSearchBar(self):
+        return self.searchBars[self.tabInd()]
+
+
+    def toggleAutoUpdateViews(self):
+        self.autoUpdateViews = not self.autoUpdateViews
+
+
+    def copyTextToClipboard(self):
+        pyperclip.copy(self.getTextEdit().text())
+
+
+    def quickPrompt(self, title, message):
+        reply = QMessageBox.question(self, title,
+                        message, QMessageBox.Yes, QMessageBox.No)
+        return reply == QMessageBox.Yes
+
+
+    def sortTree(self):
+        itemModel = self.itemModels[self.tabInd()]
+        itemModel.sort(0)
+        self.refreshTree()
+
+
+
     def updateLineColInfo(self):
-        cursorLine, cursorCol = self.textEditors[self.tabInd()].getCursorPosition()
+        cursorLine, cursorCol = self.getTextEdit().getCursorPosition()
         self.lineColLabel.setText('Ln {}, Cl {}'.format(cursorLine + 1, cursorCol + 1))
 
 
