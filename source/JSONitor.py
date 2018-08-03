@@ -26,6 +26,9 @@ set vars on tab switch to avoid having to get index all the time?
 *undo stack for tree view
 go to file
 *settings
+fix backslash consistency
+
+fix styling
 
 LINE EDIT
 Up down arrows to search through dir
@@ -139,6 +142,13 @@ class JSONitorWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
+        # System Settings
+        self.title = 'JSONitor (JSON Editor by Aaron Aikman)'
+        self.findMatchCase = False
+        self.findWholeWord = False
+        self.waitTime = 0.05
+        self.autoUpdateViews = False
+        self.settingsFile = '{}/JSONitorSettings.json'.format(sourcePath)
 
         # Info
         self.pages = []
@@ -157,23 +167,36 @@ class JSONitorWindow(QMainWindow):
         self.bookmarks = {}
         self.textHistory = []
         self.textHistoryIndex = None
-        self.textHistoryMax = 50
         self.foundMatches = []
 
         # Settings
-        self.title = 'JSONitor (JSON Editor by Aaron Aikman)'
-        self.autoUpdateViews = False
-        self.findMatchCase = False
-        self.findWholeWord = False
-        self.autoCompleteBraces = True
-        self.waitTime = 0.05
-        self.sortKeys = False
-        jsc.setSortKeys(self.sortKeys)
-        self.doStyling = False
-        self.statusMessageDur = 2
-        self.errorDuration = 5
-        self.warningDuration = 2.5
-        self.clearFindOnFocus = True
+        self.settings = {
+            "textSettings" : {
+                "autoSyntax" : True,
+                "clearSearchBarOnFocus" : True,
+                "alwaysSortKeysOnFormat" : False
+            },
+            "statusMessageSettings" : {
+                "infoDuration" : 2,
+                "warningDuration" : 3,
+                "errorDuration" : 5
+            },
+            "undoSettings" : {
+                "maxUndos" : 50
+            },
+            "stylingSettings" : {
+                "doStyling" : False,
+                "lineEditStyleSheet" : "QLineEdit {border: 2px solid rgb(63, 63, 63); color: rgb(255, 255, 255); background-color: rgb(128, 128, 128);}",
+                "treeViewStyleSheet" : "QLineEdit {border: 2px solid rgb(63, 63, 63); color: rgb(255, 255, 255); background-color: rgb(128, 128, 128);}",
+                "textEditStyleSheet" : "QLineEdit {border: 2px solid rgb(63, 63, 63); color: rgb(255, 255, 255); background-color: rgb(128, 128, 128);}",
+                "searchBarStyleSheet" : "QLineEdit {border: 2px solid rgb(63, 63, 63); color: rgb(255, 255, 255); background-color: rgb(128, 128, 128);}"
+            }
+
+        }
+
+        jsc.setSortKeys(self.settings["textSettings"]["alwaysSortKeysOnFormat"])
+
+        self.loadSettings()
 
         self.initUI()
 
@@ -205,8 +228,8 @@ class JSONitorWindow(QMainWindow):
         self.actionFind_All.triggered.connect(self.findInText)
         self.actionSet_Focus_To_Text_View.triggered.connect(self.setFocusToTextEdit)
         self.actionSet_Focus_To_Tree_View.triggered.connect(self.setFocusToTreeEdit)
-        # self.actionFind.triggered.connect(self.highlightCurrentLine)
-        # self.filepathLineEdit.returnPressed.connect(self.lineEditEnter)
+        self.actionSettings.triggered.connect(self.openSettingsFile)
+        self.actionReset_Settings.triggered.connect(self.resetSettingsFile)
 
         # Go options
         self.actionGo_to_Line.triggered.connect(self.goToLine)
@@ -326,43 +349,9 @@ class JSONitorWindow(QMainWindow):
 
         self.setWindowTitle(self.title)
 
-        # Colors
-        self.lineEditStyleSheet = ('''
-            QLineEdit {
-                border: 2px solid rgb(63, 63, 63);
-                color: rgb(255, 255, 255);
-                background-color: rgb(128, 128, 128);
-            }
-            ''')
-
-        self.treeViewStyleSheet = ('''
-            QTreeView {
-                border: 2px solid rgb(63, 63, 63);
-                color: rgb(255, 255, 255);
-                background-color: rgb(128, 128, 128);
-            }
-            ''')
-
-        self.textEditStyleSheet = ('''
-            QsciScintilla {
-                border: 2px solid rgb(63, 63, 63);
-                color: rgb(255, 255, 255);
-                background-color: rgb(128, 128, 128);
-            }
-            ''')
-
-        self.searchBarStyleSheet = ('''
-            QsciScintilla {
-                border: 2px solid rgb(63, 63, 63);
-                color: rgb(255, 255, 255);
-                background-color: rgb(128, 128, 128);
-            }
-            ''')
-
         self.__monoFont = QFont('DejaVu Sans Mono')
         self.__monoFont.setPointSize(8)
 
-        self.tabLayoutList = []
         self.tabs = QTabWidget()
         self.tabs.currentChanged.connect(self.onTabChange)
 
@@ -393,6 +382,10 @@ class JSONitorWindow(QMainWindow):
     # Widget / Window #
     ###################
 
+    def closeEvent(self, event):
+        self.closeWindow()
+
+
     def createLineEdit(self):
         logger.debug('Creating Line Edit')
         lineEdit = QLineEdit()
@@ -406,8 +399,8 @@ class JSONitorWindow(QMainWindow):
             nameAttemptCount += 1
         self.files.append(tmpFileName)
         lineEdit.setText(tmpFileName)
-        if self.doStyling:
-            lineEdit.setStyleSheet(self.lineEditStyleSheet)
+        if self.settings["stylingSettings"]["doStyling"]:
+            lineEdit.setStyleSheet(self.settings["stylingSettings"]["lineEditStyleSheet"])
         return lineEdit
 
 
@@ -420,8 +413,8 @@ class JSONitorWindow(QMainWindow):
         lineEdit.returnPressed.connect(self.searchBarReturnPressed)
         lineEdit.setToolTip('Begin typing to select a match.  Press Ctrl+Shift+F to select all match. Press Enter to go to the next match.  Press Ctrl+Enter to focus the Text View')
         self.searchBars.append(lineEdit)
-        if self.doStyling:
-            lineEdit.setStyleSheet(self.searchBarStyleSheet)
+        if self.settings["stylingSettings"]["doStyling"]:
+            lineEdit.setStyleSheet(self.settings["stylingSettings"]["searchBarStyleSheet"])
         return lineEdit
 
 
@@ -527,8 +520,8 @@ class JSONitorWindow(QMainWindow):
         textEditor.setMarginSensitivity(1, True)
         textEditor.marginClicked.connect(self.marginLeftClick)
 
-        if self.doStyling:
-            textEditor.setStyleSheet(self.textEditStyleSheet)
+        if self.settings["stylingSettings"]["doStyling"]:
+            textEditor.setStyleSheet(self.settings["stylingSettings"]["textEditStyleSheet"])
 
         self.textEditors.append(textEditor)
 
@@ -557,8 +550,8 @@ class JSONitorWindow(QMainWindow):
         treeView.customContextMenuRequested.connect(self.openContextMenu)
         # itemModel.setHorizontalHeaderLabels([self.tr("Tree View")])
 
-        if self.doStyling:
-            treeView.setStyleSheet(self.treeViewStyleSheet)
+        if self.settings["stylingSettings"]["doStyling"]:
+            treeView.setStyleSheet(self.settings["stylingSettings"]["treeViewStyleSheet"])
 
         return treeView
 
@@ -635,7 +628,7 @@ class JSONitorWindow(QMainWindow):
             toolButton.setToolTip('Redo Text Change (Ctrl+Shift+Y)')
         elif btnUse == 'settings':
             toolButton.setIcon(qta.icon('fa.cog'))
-            toolButton.clicked.connect(self.redoTextChange)
+            toolButton.clicked.connect(self.openSettingsFile)
             toolButton.setToolTip('Settings (Ctrl+Comma)')
         elif btnUse == 'searchCase':
             toolButton.setIcon(qta.icon('ei.fontsize'))
@@ -752,7 +745,7 @@ class JSONitorWindow(QMainWindow):
         else:
             logger.debug('File not found in current tabs. Opening new tab.')
             self.addPage(setFocusOn=setFocusOn)
-            self.lineEdits[self.tabInd()].setText(filename)
+            self.getLineEdit().setText(filename.replace('\\', '/'))
             if os.path.isfile(filename):
                 with open(filename, 'r', encoding='utf-8-sig') as f:
                     data = f.read()
@@ -762,7 +755,7 @@ class JSONitorWindow(QMainWindow):
                 logger.debug('Open Files: {}'.format(self.files))
 
                 self.setWindowTitle('{} - {}'.format(self.title, os.path.basename(filename)))
-                tabName = os.path.splitext(os.path.basename(self.lineEdits[self.tabInd()].text()))[0]
+                tabName = os.path.splitext(os.path.basename(self.getLineEdit().text()))[0]
                 self.tabs.setTabText(self.tabInd(), tabName)
                 self.updateTreeViewFromText()
                 self.statusMessage('Opened file: {}'.format(filename))
@@ -771,52 +764,65 @@ class JSONitorWindow(QMainWindow):
 
     def saveFile(self, doDialog = 0):
         tabInd = self.tabInd()
-        filename = self.files[tabInd]
+        filename = self.files[tabInd].replace('\\', '/')
         if not filename:
             self.saveAs()
-        fpText = self.lineEdits[tabInd].text()
+        fpText = self.getLineEdit().text().replace('\\', '/')
         if doDialog:
             filename = QFileDialog.getSaveFileName(self, 'Save File', filter='*json')[0]
             if filename:
-                self.lineEdits[tabInd].setText(filename)
+                self.getLineEdit().setText(filename)
         elif filename != fpText:
             if os.path.isfile(fpText):
                 if self.quickPrompt('Save?', 'Do you want to OVERWRITE to the new filepath instead of the original?'):
                     filename = fpText
                 else:
-                    self.lineEdits[tabInd].setText(filename)
+                    self.getLineEdit().setText(filename)
             else:
                 if self.quickPrompt('Save?', 'Do you want to save to the new filepath instead of the original?'):
                     filename = fpText
                 else:
-                    self.lineEdits[tabInd].setText(filename)
+                    self.getLineEdit().setText(filename)
 
         if filename:
+            proceed = True
             newText = str(self.textEditors[tabInd].text())
-            if not os.path.exists(os.path.dirname(filename)):
-                os.makedirs(os.path.dirname(filename))
+            if filename == self.settingsFile.replace('\\', '/'):
+                print('SAVING SETTINGS \n\n')
+                newDict = jsc.getDict(newText)
+                print(newDict)
+                if not newDict:
+                    proceed = False
 
-            if os.access(os.path.dirname(filename), os.W_OK):
-                with open(filename, 'w') as f:
-                    f.write(newText)
-                self.setWindowTitle('{} - {}'.format(self.title, os.path.basename(filename)))
+            if proceed:
+                if not os.path.exists(os.path.dirname(filename)):
+                    os.makedirs(os.path.dirname(filename))
 
-                self.files[tabInd] = filename
-                tabName = os.path.splitext(os.path.basename(self.lineEdits[tabInd].text()))[0]
-                self.tabs.setTabText(tabInd, tabName)
-                self.statusMessage('Saved file: {}'.format(filename))
+                if os.access(os.path.dirname(filename), os.W_OK):
+                    with open(filename, 'w') as f:
+                        f.write(newText)
+                    self.setWindowTitle('{} - {}'.format(self.title, os.path.basename(filename)))
 
-                # Handling overwriting a file that is open in another tab
-                if self.files.count(filename) > 1:
-                    for ind, fName in enumerate(self.files):
-                        if ind != tabInd:
-                            if fName == filename:
-                                self.onTabGo(ind)
-                                self.onTabClose(force=True)
-                self.onTabGo(tabInd)
+                    self.files[tabInd] = filename
+                    tabName = os.path.splitext(os.path.basename(self.lineEdits[tabInd].text()))[0]
+                    self.tabs.setTabText(tabInd, tabName)
+                    self.statusMessage('Saved file: {}'.format(filename))
 
+                    # Handling overwriting a file that is open in another tab
+                    if self.files.count(filename) > 1:
+                        for ind, fName in enumerate(self.files):
+                            if ind != tabInd:
+                                if fName == filename:
+                                    self.onTabGo(ind)
+                                    self.onTabClose(force=True)
+                    self.onTabGo(tabInd)
+                    if filename == self.settingsFile.replace('\\', '/'):
+                        self.loadSettings()
+                else:
+                    self.statusMessage('User does not have write permissions to save to {}'.format(filename), 2)
             else:
-                self.statusMessage('User does not have write permissions to save to {}'.format(filename), 2)
+                self.statusMessage('The following text is not valid JSON. The settings file will not be saved. {}'.format(newText), 2)
+
 
 
     def saveAs(self):
@@ -983,18 +989,19 @@ class JSONitorWindow(QMainWindow):
         mode = [info, warning, error]
         dur = ms to show message in status bar for
         """
-        dur = self.statusMessageDur if self.statusMessageDur else dur
+        dur = self.settings["statusMessageSettings"]["infoDuration"] if self.settings["statusMessageSettings"]["infoDuration"] else dur
         prefix = 'INFO: '
         if mode == 2:
             prefix = 'ERROR: '
             if doLog:
                 logger.error(msg)
-            dur = self.errorDuration
+            dur = self.settings["statusMessageSettings"]["errorDuration"]
+            dur = self.settings["statusMessageSettings"]["errorDuration"]
         elif mode == 1:
             prefix = 'WARNING: '
             if doLog:
                 logger.warning(msg)
-            dur = self.warningDuration
+            dur = self.settings["statusMessageSettings"]["warningDuration"]
         else:
             if doLog:
                 logger.info(msg)
@@ -1341,7 +1348,7 @@ class JSONitorWindow(QMainWindow):
         # TODO Store history for each tab
         # TODO set undo redo buttons enabled when switching tabs
         self.textHistory.append(self.getTextEdit().text())
-        if len(self.textHistory) > self.textHistoryMax:
+        if len(self.textHistory) > self.settings["undoSettings"]["maxUndos"]:
             del self.textHistory[0]
         if setIndex:
             self.textHistoryIndex = (len(self.textHistory) - 1)
@@ -1354,12 +1361,13 @@ class JSONitorWindow(QMainWindow):
 
     def setFocusToFind(self):
         searchBar = self.getSearchBar()
-        if self.clearFindOnFocus:
+        if self.settings["textSettings"]["clearSearchBarOnFocus"]:
             searchBar.clear()
         searchBar.setFocus()
 
 
     def setFocusToTextEdit(self):
+        self.storeTextBackup()
         self.getTextEdit().setFocus()
 
 
@@ -1398,14 +1406,14 @@ class JSONitorWindow(QMainWindow):
         # textEdit.SendScintilla(textEdit.SCI_CLEARSELECTIONS)
 
     def textEditChanged(self):
-        tabName = '{}*'.format(os.path.splitext(os.path.basename(self.lineEdits[self.tabInd()].text()))[0])
+        tabName = '{}*'.format(os.path.splitext(os.path.basename(self.getLineEdit().text()))[0])
         self.tabs.setTabText(self.tabInd(), tabName)
         self.setWindowTitle('{} - {}'.format(self.title, tabName))
         if self.autoUpdateViews:
             self.updateTreeViewFromText()
 
         # AutoTyping
-        if self.autoCompleteBraces:
+        if self.settings["textSettings"]["autoSyntax"]:
             textEdit = self.getTextEdit()
             p = textEdit.getCursorPosition()
             text = textEdit.text()
@@ -1506,7 +1514,7 @@ class JSONitorWindow(QMainWindow):
 
 
     def getLineEdit(self):
-        return self.lineEditors[self.tabInd()]
+        return self.lineEdits[self.tabInd()]
 
 
     def getTreeView(self):
@@ -1545,7 +1553,7 @@ class JSONitorWindow(QMainWindow):
 
     def lineEditEnter(self):
         # TODO maybe add a separate button for open
-        filepathText = self.lineEdits[self.tabInd()].text()
+        filepathText = self.getLineEdit().text()
         if filepathText:
             if os.path.isfile(filepathText):
                 self.openFile(filepathText)
@@ -1553,12 +1561,46 @@ class JSONitorWindow(QMainWindow):
                 self.saveFile()
 
 
+    def createSettingsFile(self):
+        with open(self.settingsFile, 'w') as f:
+            f.write(jsc.getJSONPretty(self.settings))
+
+
+    def openSettingsFile(self):
+        self.openFile(self.settingsFile)
+
+
+    def resetSettingsFile(self):
+        # TODO clean up
+        try:
+            os.remove(self.settingsFile)
+            self.createSettingsFile()
+        except:
+            try:
+                self.statusMessage('Unable to reset settings file.  Make sure you have write access to the JSONitorSettings.json file.', 2)
+            except:
+                logger.error('Unable to reset settings file.  Make sure you have write access to the JSONitorSettings.json file.')
+
+
+    def loadSettings(self):
+        print('loading settings\n\n')
+        if os.path.isfile(self.settingsFile):
+            with open(self.settingsFile, 'r', encoding='utf-8-sig') as f:
+                    data = f.read()
+                    newDict = jsc.getDict(data)
+                    if newDict:
+                        for key in self.settings:
+                            for subkey in self.settings[key]:
+                                self.settings[key][subkey] = newDict[key][subkey]
+                        print(self.settings)
+                    else:
+                        self.resetSettingsFile()
+        else:
+            self.createSettingsFile()
+
+
     def marginLeftClick(self, margin_nr, line_nr, state):
-        print("Margin clicked (left mouse btn)!")
-        print(" -> margin_nr: " + str(margin_nr))
-        print(" -> line_nr:   " + str(line_nr))
-        print(" -> state:   " + str(state))
-        print("")
+        pass
 
         # if state == Qt.ControlModifier:
         #     # Show green dot.

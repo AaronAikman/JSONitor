@@ -83,6 +83,7 @@
     <addaction name="actionNext_Tab"/>
     <addaction name="separator"/>
     <addaction name="actionSettings"/>
+    <addaction name="actionReset_Settings"/>
     <addaction name="separator"/>
     <addaction name="actionQuit"/>
    </widget>
@@ -445,6 +446,11 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+Shift+Return</string>
+   </property>
+  </action>
+  <action name="actionReset_Settings">
+   <property name="text">
+    <string>Reset Settings</string>
    </property>
   </action>
  </widget>
