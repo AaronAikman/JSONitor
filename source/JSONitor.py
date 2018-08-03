@@ -28,7 +28,7 @@ go to file
 *settings
 fix backslash consistency
 
-fix styling
+*fix styling or remove
 
 LINE EDIT
 Up down arrows to search through dir
@@ -37,10 +37,7 @@ left right arrows to go up or down folders
 JSON
 conversion to (xml, csv, yaml)?
 *validation help
-format/Beautify
-Minimize/compact
 use margin clicks for reordering elements
-Add schema support?
 compensate for NaN, Infinity, -Infinity?
 
 TREE VIEW
@@ -174,7 +171,8 @@ class JSONitorWindow(QMainWindow):
             "textSettings" : {
                 "autoSyntax" : True,
                 "clearSearchBarOnFocus" : True,
-                "alwaysSortKeysOnFormat" : False
+                "alwaysSortKeysOnFormat" : False,
+                "allowNaN" : False
             },
             "statusMessageSettings" : {
                 "infoDuration" : 2,
@@ -194,7 +192,6 @@ class JSONitorWindow(QMainWindow):
 
         }
 
-        jsc.setSortKeys(self.settings["textSettings"]["alwaysSortKeysOnFormat"])
 
         self.loadSettings()
 
@@ -349,8 +346,8 @@ class JSONitorWindow(QMainWindow):
 
         self.setWindowTitle(self.title)
 
-        self.__monoFont = QFont('DejaVu Sans Mono')
-        self.__monoFont.setPointSize(8)
+        self.monoFont = QFont('DejaVu Sans Mono')
+        self.monoFont.setPointSize(8)
 
         self.tabs = QTabWidget()
         self.tabs.currentChanged.connect(self.onTabChange)
@@ -389,7 +386,7 @@ class JSONitorWindow(QMainWindow):
     def createLineEdit(self):
         logger.debug('Creating Line Edit')
         lineEdit = QLineEdit()
-        lineEdit.setFont(self.__monoFont)
+        lineEdit.setFont(self.monoFont)
         lineEdit.returnPressed.connect(self.lineEditEnter)
         self.lineEdits.append(lineEdit)
         nameAttemptCount = 1
@@ -408,7 +405,7 @@ class JSONitorWindow(QMainWindow):
         logger.debug('Creating Search bar')
         lineEdit = QLineEdit()
         lineEdit.setFixedWidth(140)
-        lineEdit.setFont(self.__monoFont)
+        lineEdit.setFont(self.monoFont)
         lineEdit.textChanged.connect(self.searchBarTextChanged)
         lineEdit.returnPressed.connect(self.searchBarReturnPressed)
         lineEdit.setToolTip('Begin typing to select a match.  Press Ctrl+Shift+F to select all match. Press Enter to go to the next match.  Press Ctrl+Enter to focus the Text View')
@@ -424,37 +421,8 @@ class JSONitorWindow(QMainWindow):
         # Instance
         textEditor = QsciScintilla()
 
-        # TODO Fix temp text
-        tempText = '''{
-    "glossary": {
-        "title": "example glossary",
-        "GlossDiv": {
-        "title": "S",
-        "GlossList": {
-            "GlossEntry": {
-            "ID": "SGML",
-            "SortAs": "SGML",
-            "GlossTerm": "Standard Generalized Markup Language",
-            "Acronym": "SGML",
-            "Abbrev": "ISO 8879:1986",
-            "GlossDef": {
-                "para": "A meta-markup language, used to create markup languages such as DocBook.",
-                "GlossSeeAlso": [
-                "GML",
-                "XML"
-                ]
-            },
-            "GlossSee": "markup"
-            }
-        }
-        }
-    }
-}
-    '''
-        tempText = '{"root": {"1": ["A", "B", "C"], "2": {"test": "thing", "asfd": 23, "tesfdsat": null, "2-1": ["G", "H", 0.0, 0, null], "2-2": [true, false, "L"]}, "3": ["D", "E", "F"]}, "extra": null}'
-        textEditor.setText(tempText)
         textEditor.setUtf8(True)             # Set encoding to UTF-8
-        textEditor.setFont(self.__monoFont)
+        textEditor.setFont(self.monoFont)
 
         # Text wrapping
         textEditor.setWrapMode(QsciScintilla.WrapWord)
@@ -486,7 +454,7 @@ class JSONitorWindow(QMainWindow):
 
         # Lexer
         self.lexer = QsciLexerJSON(textEditor)
-        self.lexer.setDefaultFont(self.__monoFont)
+        self.lexer.setDefaultFont(self.monoFont)
         textEditor.setFolding(True)
 
         # self.lexer = QsciLexerXML(textEditor)
@@ -498,7 +466,7 @@ class JSONitorWindow(QMainWindow):
 
         textEditor.setLexer(self.lexer)
 
-        # textEditor.setFont(self.__monoFont)
+        # textEditor.setFont(self.monoFont)
 
         textEditor.textChanged.connect(self.textEditChanged)
         textEditor.selectionChanged.connect(self.textEditSelectionChanged)
@@ -708,6 +676,8 @@ class JSONitorWindow(QMainWindow):
 
     def closeWindow(self):
         logger.debug('Closing JSONitor')
+        # TODO Check all tabs for unsaved changes
+        # TODO save tabs/temp files
         if self.tabs.tabText(self.tabInd())[-1] == '*':
             if self.quickPrompt('Save?', 'Do you want to save before closing JSONitor?'):
                 self.saveFile()
@@ -788,9 +758,7 @@ class JSONitorWindow(QMainWindow):
             proceed = True
             newText = str(self.textEditors[tabInd].text())
             if filename == self.settingsFile.replace('\\', '/'):
-                print('SAVING SETTINGS \n\n')
                 newDict = jsc.getDict(newText)
-                print(newDict)
                 if not newDict:
                     proceed = False
 
@@ -1124,14 +1092,6 @@ class JSONitorWindow(QMainWindow):
 
     def openContextMenu(self, position):
         treeView = self.getTreeView()
-        # indexes = treeView.selectedIndexes()
-        # if len(indexes) > 0:
-
-        #     level = 0
-        #     index = indexes[0]
-        #     while index.parent().isValid():
-        #         index = index.parent()
-        #         level += 1
 
         menu = QMenu()
         duplicateAction = menu.addAction(self.tr("Insert"))
@@ -1145,16 +1105,6 @@ class JSONitorWindow(QMainWindow):
 
         duplicateAction = menu.addAction(self.tr("Remove"))
         duplicateAction.triggered.connect(self.getTreeItemAndRemove)
-
-        # self.treeItemPosition = position
-        # if level == 0:
-        #     menu.addAction(self.tr("Edit person"))
-        # elif level == 1:
-        #     menu.addAction(self.tr("Edit object/container"))
-        # elif level == 2:
-        #     menu.addAction(self.tr("Edit object"))
-        # else:
-        #     menu.addAction(self.tr("Edit object"))
 
         menu.exec_(treeView.viewport().mapToGlobal(position))
 
@@ -1184,7 +1134,6 @@ class JSONitorWindow(QMainWindow):
             else:
                 searchRegex = re.compile(r"{st}".format(st = searchText))
             matchesLength = len(re.findall(searchRegex, text))
-            # print([x.span() for x in re.findall(searchRegex, text)])
             if matchesLength != 0:
                 if findNext:
                     textEdit.SendScintilla(textEdit.SCI_CLEARSELECTIONS)
@@ -1249,42 +1198,14 @@ class JSONitorWindow(QMainWindow):
         self.findInText()
 
 
-    # # text cursor functions
-    # def getTextCursor(self):
-    #     return self.getTextEdit().cursor()
-
-
-    # def setTextCursorPos(self, value):
-    #     tc = self.getTextCursor()
-    #     tc.setPos(value, QTextCursor.KeepAnchor)
-    #     self.getTextEdit().setCursor(tc)
-
-
-    # def getTextCursorPos(self):
-    #     return self.getTextCursor().position()
-
-
-    # def getTextSelection(self):
-    #     cursor = self.getTextCursor()
-    #     return cursor.selectionStart(), cursor.selectionEnd()
-
-
     def setTextSelection(self, start, end, add=False):
         textEdit = self.getTextEdit()
-        # offset = ed.positionFromLineIndex(0, 7)
-        # textEdit.SendScintilla(textEdit.SCI_MULTIPLESELECTADDNEXT, start, end)
+
         if add:
             textEdit.SendScintilla(textEdit.SCI_ADDSELECTION, start, end)
         else:
             textEdit.SendScintilla(textEdit.SCI_SETSELECTION, start, end)
-        # cursor = self.getTextCursor()
-        # cursor.setPos(start[0], start[1])
-        # cursor.setPos(end[0], end[1], QTextCursor.KeepAnchor)
-        # textEdit.setCursorPosition(start[0], start[1])
-        # TODO extra selections?
-        # textEdit.setFocus()
-        # self.getTextEdit().setCursorPosition(end[0], end[1], QTextCursor.KeepAnchor)
-        # self.getTextEdit().setTextCursor(cursor)
+
 
     def clearTextSelection(self):
         textEdit = self.getTextEdit()
@@ -1427,37 +1348,12 @@ class JSONitorWindow(QMainWindow):
                         lastTypedChar = line[p[1]:(p[1]+1)]
                         nextChar = line[(p[1]+1):(p[1]+2)]
 
-
             autoContinued = False
             autoContinueOptions = ['}', ']', '"']
             autoReplaceOptions = ['{', '[', '"']
 
-            # TODO fix this
-            # Checking for all but " in order to remove end character when start character missing
-            # for i in range(len(autoContinueOptions)-1):
-            #     if autoContinueOptions[i] in textLines[p[0]][p[1]:]:
-            #         if not autoReplaceOptions[i] in textLines[p[0]][:p[1]]:
-            #             print('hi')
-            #             textLines[p[0]] = textLines[p[0]].replace(autoContinueOptions[i], '')
-            #             text = '\n'.join(textLines)
-            #             p = tuple([p[0], (p[1])])
-            #             self.updateTextAutoBrace(text, p)
-            #             autoContinued = True
-
-
             if nextChar:
                 if nextChar in autoContinueOptions:
-                    # print('l', lastTypedChar, 'n', nextChar)
-                    # print(textLines[p[0]].replace(' ', 'x'))
-                    # if lastTypedChar not in autoReplaceOptions:
-                    # if all([not x in autoReplaceOptions for x in textLines[p[0]]]):
-                    #     print('hi')
-                    #     textLines[p[0]] = self.replaceStrIndex(textLines[p[0]], p[1]+1, '')
-                    #     text = '\n'.join(textLines)
-                    #     p = tuple([p[0], (p[1] + 1)])
-                    #     self.updateTextAutoBrace(text, p)
-                    #     autoContinued = True
-                    # else:
                     proceed = False
                     if lastTypedChar == '}' and nextChar == '}':
                         proceed = True
@@ -1574,7 +1470,7 @@ class JSONitorWindow(QMainWindow):
         # TODO clean up
         try:
             os.remove(self.settingsFile)
-            self.createSettingsFile()
+            self.loadSettings()
         except:
             try:
                 self.statusMessage('Unable to reset settings file.  Make sure you have write access to the JSONitorSettings.json file.', 2)
@@ -1583,7 +1479,6 @@ class JSONitorWindow(QMainWindow):
 
 
     def loadSettings(self):
-        print('loading settings\n\n')
         if os.path.isfile(self.settingsFile):
             with open(self.settingsFile, 'r', encoding='utf-8-sig') as f:
                     data = f.read()
@@ -1591,12 +1486,20 @@ class JSONitorWindow(QMainWindow):
                     if newDict:
                         for key in self.settings:
                             for subkey in self.settings[key]:
-                                self.settings[key][subkey] = newDict[key][subkey]
-                        print(self.settings)
+                                try:
+                                    self.settings[key][subkey] = newDict[key][subkey]
+                                except:
+                                    # Key does not yet exist
+                                    pass
                     else:
                         self.resetSettingsFile()
         else:
             self.createSettingsFile()
+
+
+        # Converter settings
+        jsc.setSortKeys(self.settings["textSettings"]["alwaysSortKeysOnFormat"])
+        jsc.setSortKeys(self.settings["textSettings"]["allowNaN"])
 
 
     def marginLeftClick(self, margin_nr, line_nr, state):
@@ -1617,97 +1520,6 @@ class JSONitorWindow(QMainWindow):
         # else:
         #     # Show red arrow.
         #     self.__editor.markerAdd(line_nr, 3)
-
-    # ''''''
-
-    # def __margin_right_clicked(self, margin_nr, line_nr, state):
-    #     print("Margin clicked (right mouse btn)!")
-    #     print(" -> margin_nr: " + str(margin_nr))
-    #     print(" -> line_nr:   " + str(line_nr))
-    #     print("")
-
-
-    #######
-    # REF #
-    #######
-
-    #     items = ("C", "C++", "Java", "Python")
-
-    # item, ok = QInputDialog.getItem(self, "select input dialog",
-    # "list of languages", items, 0, False)
-
-    # if ok and item:
-    #     self.le.setText(item)
-
-    # def gettext(self):
-    #     text, ok = QInputDialog.getText(self, 'Text Input Dialog', 'Enter your name:')
-    #     if ok:
-    #         self.le1.setText(str(text))
-
-    # def getint(self):
-    #     num,ok = QInputDialog.getInt(self,"integer input dualog","enter a number")
-
-    #     if ok:
-    #         self.le2.setText(str(num))
-
-    # text cursor functions
-    # def get_text_cursor(self):
-    #     return self.TextEdit.textCursor()
-
-    # def set_text_cursor_pos(self, value):
-    #     tc = self.get_text_cursor()
-    #     tc.setPosition(value, QtGui.QTextCursor.KeepAnchor)
-    #     self.TextEdit.setTextCursor(tc)
-
-    # def get_text_cursor_pos(self):
-    #     return self.get_text_cursor().position()
-
-    # def get_text_selection(self):
-    #     cursor = self.get_text_cursor()
-    #     return cursor.selectionStart(), cursor.selectionEnd()
-
-    # def set_text_selection(self, start, end):
-    #     cursor = self.get_text_cursor()
-    #     cursor.setPosition(start)
-    #     cursor.setPosition(end, QtGui.QTextCursor.KeepAnchor)
-    #     self.TextEdit.setTextCursor(cursor)
-
-
-    # class CommandDelete(QUndoCommand):
-
-    # def __init__(self, listWidget, item, row, description):
-    #     super(CommandDelete, self).__init__(description)
-    #     self.listWidget = listWidget
-    #     self.string = item.text()
-    #     self.row = row
-
-    # def redo(self):
-    #     item = self.listWidget.takeItem(self.row)
-    #     del item
-
-    # def undo(self):
-    #     self.listWidget.insertItem(self.row, self.string)
-
-    # def highlightCurrentLine(self):
-        # pass
-        # textEdit = self.getTextEdit()
-        # offset = ed.positionFromLineIndex(0, 7)
-        # textEdit.SendScintilla(textEditor.SCI_SETSELECTION, 1)
-
-        # extraSelections = []
-
-        # # if not self.isReadOnly():
-        # selection = QTextEdit.ExtraSelection()
-
-        # lineColor = QColor(Qt.yellow).lighter(160)
-
-        # selection.format.setBackground(lineColor)
-        # selection.format.setProperty(QTextFormat.FullWidthSelection, QVariant(True))
-        # # selection.cursor = textEdit.cursor()
-        # # selection.cursor.clearSelection()
-        # extraSelections.append(selection)
-
-        # textEdit.setExtraSelections(extraSelections)
 
 
 class TextAutoBraceThread(QThread):
@@ -1773,15 +1585,6 @@ class TextUpdateThread(QThread):
     def run(self):
         time.sleep(self.waitTime)
         self.textEditFromTreeSignal.emit()
-        # try:
-        #     itemList = self.itemModel.itemList()
-        #     print(itemList)
-        #     newJSON = jsc.getJSONPretty(jsc.getDictFromLists(itemList))
-        #     self.textEditFromTreeSignal.emit(newJSON)
-        #     self.statusSignal.emit('Updated Text based upon Tree View', 0)
-        # except ValueError as vErr:
-        #     logger.warning('Unable to retrieve JSON from Tree View because of ValueError: {}'.format(vErr))
-        #     self.statusSignal.emit('WARNING: Unable to update Text based upon Tree View. Ensure that the Tree View would result in valid JSON. See log for details', 1)
 
 
 class StandardItemModel(QStandardItemModel):

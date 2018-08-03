@@ -7,6 +7,7 @@ class JSONConverter:
             self.__content = JSONText
         self.__dict = self.getDict(JSONText) if JSONText else None
         self.sortKeys = False
+        self.allowNaN = False
         self.logger = logger
 
 
@@ -26,13 +27,13 @@ class JSONConverter:
     def getJSONPretty(self, d):
         """ Return JSON that is pretty printed
         """
-        return json.dumps(d, indent=4, sort_keys=self.sortKeys, allow_nan=False)
+        return json.dumps(d, indent=4, sort_keys=self.sortKeys, allow_nan=self.allowNaN)
 
 
     def getJSONCompact(self, d):
         """ Returns JSON with no whitespace
         """
-        return json.dumps(d, indent=None, separators=(',', ':'), sort_keys=self.sortKeys, allow_nan=False)
+        return json.dumps(d, indent=None, separators=(',', ':'), sort_keys=self.sortKeys, allow_nan=self.allowNaN)
 
 
     def setSortKeys(self, b):
