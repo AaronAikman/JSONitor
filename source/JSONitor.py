@@ -7,7 +7,7 @@ add drag and drop
 copy/paste
 recently closed files
 add comparison
-add an About
+*add an About
 save temp files/autosave
 Use json file for ui colors/settings
 *find and replace
@@ -25,6 +25,7 @@ save tabs on close
 set vars on tab switch to avoid having to get index all the time?
 *undo stack for tree view
 go to file
+*settings
 
 LINE EDIT
 Up down arrows to search through dir
@@ -157,7 +158,7 @@ class JSONitorWindow(QMainWindow):
         self.textHistory = []
         self.textHistoryIndex = None
         self.textHistoryMax = 50
-        self.findNextInd = 0
+        self.foundMatches = []
 
         # Settings
         self.title = 'JSONitor (JSON Editor by Aaron Aikman)'
@@ -172,6 +173,7 @@ class JSONitorWindow(QMainWindow):
         self.statusMessageDur = 2
         self.errorDuration = 5
         self.warningDuration = 2.5
+        self.clearFindOnFocus = True
 
         self.initUI()
 
@@ -201,6 +203,8 @@ class JSONitorWindow(QMainWindow):
         self.actionRedo.triggered.connect(self.redoTextChange)
         self.actionFind.triggered.connect(self.setFocusToFind)
         self.actionFind_Next.triggered.connect(self.findNextInText)
+        self.actionSet_Focus_To_Text_View.triggered.connect(self.setFocusToTextEdit)
+        self.actionSet_Focus_To_Tree_View.triggered.connect(self.setFocusToTreeEdit)
         # self.actionFind.triggered.connect(self.highlightCurrentLine)
         # self.filepathLineEdit.returnPressed.connect(self.lineEditEnter)
 
@@ -412,8 +416,9 @@ class JSONitorWindow(QMainWindow):
         lineEdit = QLineEdit()
         lineEdit.setFixedWidth(140)
         lineEdit.setFont(self.__monoFont)
-        lineEdit.textChanged.connect(self.findInText)
-        lineEdit.returnPressed.connect(self.findInTextAndFocus)
+        lineEdit.textChanged.connect(self.searchBarTextChanged)
+        lineEdit.returnPressed.connect(self.searchBarReturnPressed)
+        lineEdit.setToolTip('Begin typing to select all matches.  Press Ctrl+Shift+F to select the next occurence of the search. Press Enter to go to the selection in the Text View')
         self.searchBars.append(lineEdit)
         if self.doStyling:
             lineEdit.setStyleSheet(self.searchBarStyleSheet)
@@ -508,6 +513,9 @@ class JSONitorWindow(QMainWindow):
 
         # Drops
         textEditor.setAcceptDrops(True)
+
+        # Cursor Visible
+        # textEditor.ensureCursorVisible()
 
         # Multiline Editing
         textEditor.SendScintilla(textEditor.SCI_SETADDITIONALSELECTIONTYPING, 1)
@@ -999,6 +1007,10 @@ class JSONitorWindow(QMainWindow):
     # Tree #
     ########
 
+    def setFocusToTreeEdit(self):
+        self.getTreeView().setFocus()
+
+
     def treeViewExpand(self):
         self.getTreeView().expandAll()
 
@@ -1148,7 +1160,7 @@ class JSONitorWindow(QMainWindow):
     # Text #
     ########
 
-    def findInText(self, searchText=None, findNext=False, findNextInd=0):
+    def findInText(self, searchText=None, findNext=False):
         # TODO option for select single/find next
         if not searchText:
             searchText = self.getSearchBar().text()
@@ -1159,48 +1171,76 @@ class JSONitorWindow(QMainWindow):
             text = text.lower()
 
         foundAtLeastOne = False
-        if searchText and searchText in text:
+        if searchText:
             if self.findWholeWord:
                 searchRegex = re.compile(r"\b{st}\b".format(st = searchText))
             else:
                 searchRegex = re.compile(r"{st}".format(st = searchText))
-            for row, line in enumerate(text.split('\n')):
-                grouping = searchRegex.finditer(line)
-                if not grouping:
+            matchesLength = len(re.findall(searchRegex, text))
+            if matchesLength != 0:
+                if findNext:
                     textEdit.SendScintilla(textEdit.SCI_CLEARSELECTIONS)
-                else:
-                    proceed = True
-                    lastIndFound = 0
-                    if findNext:
+                proceed = True
+                foundNextMatch = False
+                for row, line in enumerate(text.split('\n')):
+                    grouping = searchRegex.finditer(line)
+                    if not grouping:
                         textEdit.SendScintilla(textEdit.SCI_CLEARSELECTIONS)
-                    for ind, match in enumerate(grouping):
-                        print(ind, findNextInd)
-                        if findNext:
-                            print(ind, findNextInd)
-                            # textEdit.SendScintilla(textEdit.SCI_CLEARSELECTIONS)
-                            proceed = True if ind == findNextInd else False
-                        if proceed:
-                            span = match.span()
-                            start = textEdit.positionFromLineIndex(row, span[0])
-                            end = textEdit.positionFromLineIndex(row, span[1])
-                            self.setTextSelection(start, end, foundAtLeastOne)
-                            foundAtLeastOne = True
-                        lastIndFound = ind
-                    # For restting find next if it is too high
-                    if self.findNextInd > lastIndFound - 1:
-                        self.findNextInd = -1
+                    else:
+                        for match in grouping:
+                            # print(ind, findNextInd)
+                            if findNext:
+                                # print(self.foundMatches)
+                                # textEdit.SendScintilla(textEdit.SCI_CLEARSELECTIONS)
+                                if foundNextMatch:
+                                    proceed = False
+                                else:
+                                    # print(self.foundMatches)
+                                    matchLoc = (row, match.span())
+                                    # print(matchLoc, self.foundMatches)
+                                    if matchLoc not in self.foundMatches:
+                                        proceed = True
+                                        foundNextMatch = True
+                                        self.getTextEdit().verticalScrollBar().setValue(row)
+                                        self.foundMatches.append(matchLoc)
+                                    else:
+                                        proceed = False
+                                    # proceed = True if ind == self.foundMatches else False
+                            if proceed:
+                                span = match.span()
+                                start = textEdit.positionFromLineIndex(row, span[0])
+                                end = textEdit.positionFromLineIndex(row, span[1])
+                                self.setTextSelection(start, end, foundAtLeastOne)
+                                foundAtLeastOne = True
+                        # For restting find next if it is too high
+                        print(len(self.foundMatches), matchesLength)
+                        if len(self.foundMatches) >= matchesLength:
+                            self.foundMatches = []
+                        # if self.findNextInd > lastIndFound - 1:
+                        #     self.findNextInd = -1
+            else:
+                textEdit.SendScintilla(textEdit.SCI_CLEARSELECTIONS)
+        # TODO fix repet
         else:
             textEdit.SendScintilla(textEdit.SCI_CLEARSELECTIONS)
 
 
     def findNextInText(self):
-        self.findInText(findNext=True, findNextInd=self.findNextInd)
-        self.findNextInd += 1
+        self.findInText(findNext=True)
+        # self.findNextInd += 1
+
+
+    def searchBarTextChanged(self):
+        self.findNextInText()
+
+
+    def searchBarReturnPressed(self):
+        self.findNextInText()
+        # self.setFocusToTextEdit()
+        # self.setFocusToFind()
 
 
     def findInTextAndFocus(self):
-        # TODO fix not using findmethod
-        self.findInText()
         self.setFocusToTextEdit()
 
 
@@ -1326,8 +1366,8 @@ class JSONitorWindow(QMainWindow):
 
     def setFocusToFind(self):
         searchBar = self.getSearchBar()
-        searchBar.clear()
-        # searchBar.setText('')
+        if self.clearFindOnFocus:
+            searchBar.clear()
         searchBar.setFocus()
 
 
@@ -1364,8 +1404,10 @@ class JSONitorWindow(QMainWindow):
 
 
     def textEditSelectionChanged(self):
-        textEdit = self.getTextEdit()
-        textEdit.SendScintilla(textEdit.SCI_CLEARSELECTIONS)
+        pass
+        # TODO fix
+        # textEdit = self.getTextEdit()
+        # textEdit.SendScintilla(textEdit.SCI_CLEARSELECTIONS)
 
     def textEditChanged(self):
         tabName = '{}*'.format(os.path.splitext(os.path.basename(self.lineEdits[self.tabInd()].text()))[0])
@@ -1409,8 +1451,8 @@ class JSONitorWindow(QMainWindow):
 
             if nextChar:
                 if nextChar in autoContinueOptions:
-                    print('l', lastTypedChar, 'n', nextChar)
-                    print(textLines[p[0]].replace(' ', 'x'))
+                    # print('l', lastTypedChar, 'n', nextChar)
+                    # print(textLines[p[0]].replace(' ', 'x'))
                     # if lastTypedChar not in autoReplaceOptions:
                     # if all([not x in autoReplaceOptions for x in textLines[p[0]]]):
                     #     print('hi')

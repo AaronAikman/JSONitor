@@ -135,6 +135,8 @@
     <addaction name="menuSet_Bookmark"/>
     <addaction name="menuGo_Bookmark"/>
     <addaction name="actionGo_to_Line"/>
+    <addaction name="actionSet_Focus_To_Text_View"/>
+    <addaction name="actionSet_Focus_To_Tree_View"/>
    </widget>
    <widget class="QMenu" name="menuJSON">
     <property name="title">
@@ -427,6 +429,22 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+Shift+F</string>
+   </property>
+  </action>
+  <action name="actionSet_Focus_To_Text_View">
+   <property name="text">
+    <string>Set Focus To Text View</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Return</string>
+   </property>
+  </action>
+  <action name="actionSet_Focus_To_Tree_View">
+   <property name="text">
+    <string>Set Focus To Tree View</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+Return</string>
    </property>
   </action>
  </widget>
