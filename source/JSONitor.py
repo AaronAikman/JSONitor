@@ -1161,7 +1161,7 @@ class JSONitorWindow(QMainWindow):
     ########
 
     def findInText(self, searchText=None, findNext=False):
-        # TODO option for select single/find next
+        # TODO optimize
         if not searchText:
             searchText = self.getSearchBar().text()
         textEdit = self.getTextEdit()
@@ -1177,6 +1177,7 @@ class JSONitorWindow(QMainWindow):
             else:
                 searchRegex = re.compile(r"{st}".format(st = searchText))
             matchesLength = len(re.findall(searchRegex, text))
+            # print([x.span() for x in re.findall(searchRegex, text)])
             if matchesLength != 0:
                 if findNext:
                     textEdit.SendScintilla(textEdit.SCI_CLEARSELECTIONS)
@@ -1184,40 +1185,28 @@ class JSONitorWindow(QMainWindow):
                 foundNextMatch = False
                 for row, line in enumerate(text.split('\n')):
                     grouping = searchRegex.finditer(line)
-                    if not grouping:
-                        textEdit.SendScintilla(textEdit.SCI_CLEARSELECTIONS)
-                    else:
-                        for match in grouping:
-                            # print(ind, findNextInd)
-                            if findNext:
-                                # print(self.foundMatches)
-                                # textEdit.SendScintilla(textEdit.SCI_CLEARSELECTIONS)
-                                if foundNextMatch:
-                                    proceed = False
+                    for match in grouping:
+                        if findNext:
+                            if foundNextMatch:
+                                proceed = False
+                            else:
+                                matchLoc = (row, match.span())
+                                if matchLoc not in self.foundMatches:
+                                    proceed = True
+                                    foundNextMatch = True
+                                    self.getTextEdit().verticalScrollBar().setValue(row)
+                                    self.foundMatches.append(matchLoc)
                                 else:
-                                    # print(self.foundMatches)
-                                    matchLoc = (row, match.span())
-                                    # print(matchLoc, self.foundMatches)
-                                    if matchLoc not in self.foundMatches:
-                                        proceed = True
-                                        foundNextMatch = True
-                                        self.getTextEdit().verticalScrollBar().setValue(row)
-                                        self.foundMatches.append(matchLoc)
-                                    else:
-                                        proceed = False
-                                    # proceed = True if ind == self.foundMatches else False
-                            if proceed:
-                                span = match.span()
-                                start = textEdit.positionFromLineIndex(row, span[0])
-                                end = textEdit.positionFromLineIndex(row, span[1])
-                                self.setTextSelection(start, end, foundAtLeastOne)
-                                foundAtLeastOne = True
-                        # For restting find next if it is too high
-                        print(len(self.foundMatches), matchesLength)
-                        if len(self.foundMatches) >= matchesLength:
-                            self.foundMatches = []
-                        # if self.findNextInd > lastIndFound - 1:
-                        #     self.findNextInd = -1
+                                    proceed = False
+                        if proceed:
+                            span = match.span()
+                            start = textEdit.positionFromLineIndex(row, span[0])
+                            end = textEdit.positionFromLineIndex(row, span[1])
+                            self.setTextSelection(start, end, foundAtLeastOne)
+                            foundAtLeastOne = True
+                    # For restting find next if it is too high
+                    if len(self.foundMatches) >= matchesLength:
+                        self.foundMatches = []
             else:
                 textEdit.SendScintilla(textEdit.SCI_CLEARSELECTIONS)
         # TODO fix repet
@@ -1227,7 +1216,6 @@ class JSONitorWindow(QMainWindow):
 
     def findNextInText(self):
         self.findInText(findNext=True)
-        # self.findNextInd += 1
 
 
     def searchBarTextChanged(self):
