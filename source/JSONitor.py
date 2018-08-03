@@ -202,7 +202,7 @@ class JSONitorWindow(QMainWindow):
         self.actionUndo.triggered.connect(self.undoTextChange)
         self.actionRedo.triggered.connect(self.redoTextChange)
         self.actionFind.triggered.connect(self.setFocusToFind)
-        self.actionFind_Next.triggered.connect(self.findNextInText)
+        self.actionFind_All.triggered.connect(self.findInText)
         self.actionSet_Focus_To_Text_View.triggered.connect(self.setFocusToTextEdit)
         self.actionSet_Focus_To_Tree_View.triggered.connect(self.setFocusToTreeEdit)
         # self.actionFind.triggered.connect(self.highlightCurrentLine)
@@ -418,7 +418,7 @@ class JSONitorWindow(QMainWindow):
         lineEdit.setFont(self.__monoFont)
         lineEdit.textChanged.connect(self.searchBarTextChanged)
         lineEdit.returnPressed.connect(self.searchBarReturnPressed)
-        lineEdit.setToolTip('Begin typing to select all matches.  Press Ctrl+Shift+F to select the next occurence of the search. Press Enter to go to the selection in the Text View')
+        lineEdit.setToolTip('Begin typing to select a match.  Press Ctrl+Shift+F to select all match. Press Enter to go to the next match.  Press Ctrl+Enter to focus the Text View')
         self.searchBars.append(lineEdit)
         if self.doStyling:
             lineEdit.setStyleSheet(self.searchBarStyleSheet)

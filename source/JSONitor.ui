@@ -94,7 +94,7 @@
     <addaction name="actionRedo"/>
     <addaction name="separator"/>
     <addaction name="actionFind"/>
-    <addaction name="actionFind_Next"/>
+    <addaction name="actionFind_All"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -423,9 +423,9 @@
     <string>Ctrl+F</string>
    </property>
   </action>
-  <action name="actionFind_Next">
+  <action name="actionFind_All">
    <property name="text">
-    <string>Find Next</string>
+    <string>Find All</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+Shift+F</string>
