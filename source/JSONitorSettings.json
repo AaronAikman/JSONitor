@@ -1,0 +1,19 @@
+{
+    "textSettings": {
+        "autoSyntax": true,
+        "clearSearchBarOnFocus": true,
+        "alwaysSortKeysOnFormat": false,
+        "allowNaN": false
+    },
+    "statusMessageSettings": {
+        "infoDuration": 2,
+        "warningDuration": 3,
+        "errorDuration": 5
+    },
+    "undoSettings": {
+        "maxUndos": 50
+    },
+    "tabSettings": {
+        "reopenRecentTabsOnStart": true
+    }
+}

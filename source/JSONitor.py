@@ -28,7 +28,7 @@ go to file
 *settings
 fix backslash consistency
 
-*fix styling or remove
+# *fix styling or remove
 
 LINE EDIT
 Up down arrows to search through dir
@@ -80,6 +80,7 @@ from PyQt5.Qsci import *
 
 import qtawesome as qta
 import pyperclip
+import copy
 
 import Utilities.JSONTools as jst
 
@@ -146,6 +147,8 @@ class JSONitorWindow(QMainWindow):
         self.waitTime = 0.05
         self.autoUpdateViews = False
         self.settingsFile = '{}/JSONitorSettings.json'.format(sourcePath)
+        self.historyFile = '{}/JSONitorHistory.json'.format(sourcePath)
+        self.absoluteMaxUndos = 500
 
         # Info
         self.pages = []
@@ -165,6 +168,11 @@ class JSONitorWindow(QMainWindow):
         self.textHistory = []
         self.textHistoryIndex = None
         self.foundMatches = []
+        self.history = {
+            "tabHistory" : {
+                "lastOpenTabs": [None]
+            }
+        }
 
         # Settings
         self.settings = {
@@ -182,18 +190,25 @@ class JSONitorWindow(QMainWindow):
             "undoSettings" : {
                 "maxUndos" : 50
             },
-            "stylingSettings" : {
-                "doStyling" : False,
-                "lineEditStyleSheet" : "QLineEdit {border: 2px solid rgb(63, 63, 63); color: rgb(255, 255, 255); background-color: rgb(128, 128, 128);}",
-                "treeViewStyleSheet" : "QLineEdit {border: 2px solid rgb(63, 63, 63); color: rgb(255, 255, 255); background-color: rgb(128, 128, 128);}",
-                "textEditStyleSheet" : "QLineEdit {border: 2px solid rgb(63, 63, 63); color: rgb(255, 255, 255); background-color: rgb(128, 128, 128);}",
-                "searchBarStyleSheet" : "QLineEdit {border: 2px solid rgb(63, 63, 63); color: rgb(255, 255, 255); background-color: rgb(128, 128, 128);}"
+            "tabSettings" : {
+                "reopenRecentTabsOnStart" : True
             }
+            # },
+            # "stylingSettings" : {
+                # "doStyling" : False,
+                # "lineEditStyleSheet" : "QLineEdit {border: 2px solid rgb(63, 63, 63); color: rgb(255, 255, 255); background-color: rgb(128, 128, 128);}",
+                # "treeViewStyleSheet" : "QLineEdit {border: 2px solid rgb(63, 63, 63); color: rgb(255, 255, 255); background-color: rgb(128, 128, 128);}",
+                # "textEditStyleSheet" : "QLineEdit {border: 2px solid rgb(63, 63, 63); color: rgb(255, 255, 255); background-color: rgb(128, 128, 128);}",
+                # "searchBarStyleSheet" : "QLineEdit {border: 2px solid rgb(63, 63, 63); color: rgb(255, 255, 255); background-color: rgb(128, 128, 128);}"
+            # }
 
         }
+        self.defaultSettings = copy.deepcopy(self.settings)
+        self.defaultHistory = copy.deepcopy(self.history)
 
 
-        self.loadSettings()
+        self.loadInfoFile()
+        self.loadInfoFile('history')
 
         self.initUI()
 
@@ -226,7 +241,7 @@ class JSONitorWindow(QMainWindow):
         self.actionSet_Focus_To_Text_View.triggered.connect(self.setFocusToTextEdit)
         self.actionSet_Focus_To_Tree_View.triggered.connect(self.setFocusToTreeEdit)
         self.actionSettings.triggered.connect(self.openSettingsFile)
-        self.actionReset_Settings.triggered.connect(self.resetSettingsFile)
+        self.actionReset_Settings.triggered.connect(self.resetInfoFile)
 
         # Go options
         self.actionGo_to_Line.triggered.connect(self.goToLine)
@@ -372,6 +387,13 @@ class JSONitorWindow(QMainWindow):
 
         self.addPage()
 
+        # Reopening recent tabs
+        if self.settings["tabSettings"]["reopenRecentTabsOnStart"]:
+            if self.history["tabHistory"]["lastOpenTabs"]:
+                for filename in self.history["tabHistory"]["lastOpenTabs"]:
+                    if filename and os.path.isfile(filename):
+                        self.openFile(filename)
+
         self.show()
 
 
@@ -396,8 +418,8 @@ class JSONitorWindow(QMainWindow):
             nameAttemptCount += 1
         self.files.append(tmpFileName)
         lineEdit.setText(tmpFileName)
-        if self.settings["stylingSettings"]["doStyling"]:
-            lineEdit.setStyleSheet(self.settings["stylingSettings"]["lineEditStyleSheet"])
+        # # if self.settings["stylingSettings"]["doStyling"]:
+            # # # lineEdit.setStyleSheet(self.settings["stylingSettings"]["lineEditStyleSheet"])
         return lineEdit
 
 
@@ -410,8 +432,8 @@ class JSONitorWindow(QMainWindow):
         lineEdit.returnPressed.connect(self.searchBarReturnPressed)
         lineEdit.setToolTip('Begin typing to select a match.  Press Ctrl+Shift+F to select all match. Press Enter to go to the next match.  Press Ctrl+Enter to focus the Text View')
         self.searchBars.append(lineEdit)
-        if self.settings["stylingSettings"]["doStyling"]:
-            lineEdit.setStyleSheet(self.settings["stylingSettings"]["searchBarStyleSheet"])
+        # # if self.settings["stylingSettings"]["doStyling"]:
+            # # # lineEdit.setStyleSheet(self.settings["stylingSettings"]["searchBarStyleSheet"])
         return lineEdit
 
 
@@ -488,8 +510,8 @@ class JSONitorWindow(QMainWindow):
         textEditor.setMarginSensitivity(1, True)
         textEditor.marginClicked.connect(self.marginLeftClick)
 
-        if self.settings["stylingSettings"]["doStyling"]:
-            textEditor.setStyleSheet(self.settings["stylingSettings"]["textEditStyleSheet"])
+        # # if self.settings["stylingSettings"]["doStyling"]:
+            # # # textEditor.setStyleSheet(self.settings["stylingSettings"]["textEditStyleSheet"])
 
         self.textEditors.append(textEditor)
 
@@ -518,8 +540,8 @@ class JSONitorWindow(QMainWindow):
         treeView.customContextMenuRequested.connect(self.openContextMenu)
         # itemModel.setHorizontalHeaderLabels([self.tr("Tree View")])
 
-        if self.settings["stylingSettings"]["doStyling"]:
-            treeView.setStyleSheet(self.settings["stylingSettings"]["treeViewStyleSheet"])
+        # # if self.settings["stylingSettings"]["doStyling"]:
+            # # # treeView.setStyleSheet(self.settings["stylingSettings"]["treeViewStyleSheet"])
 
         return treeView
 
@@ -676,12 +698,35 @@ class JSONitorWindow(QMainWindow):
 
     def closeWindow(self):
         logger.debug('Closing JSONitor')
-        # TODO Check all tabs for unsaved changes
-        # TODO save tabs/temp files
-        if self.tabs.tabText(self.tabInd())[-1] == '*':
-            if self.quickPrompt('Save?', 'Do you want to save before closing JSONitor?'):
-                self.saveFile()
-        sys.exit()
+        # TODO save temp files
+        saveAll = False
+        discardAll = False
+        doExit = True
+        for ind, filename in enumerate(self.files):
+            self.onTabGo(ind)
+            if discardAll:
+                continue
+            if self.tabs.tabText(ind)[-1] == '*':
+                if saveAll:
+                    self.saveFile(ind)
+                    continue
+                title = 'Save?'
+                message =  'Do you want to save {} before closing JSONitor?'.format(filename.split('/')[-1])
+                reply = QMessageBox.question(self, title,
+                        message, (QMessageBox.Yes | QMessageBox.No | QMessageBox.YesToAll | QMessageBox.NoToAll | QMessageBox.Cancel))
+                if reply == QMessageBox.Yes:
+                    self.saveFile(ind)
+                elif reply == QMessageBox.YesToAll:
+                    self.saveFile(ind)
+                    saveAll = True
+                elif reply == QMessageBox.NoToAll:
+                    discardAll = True
+                elif reply == QMessageBox.Cancel:
+                    doExit = False
+        if doExit:
+            self.history["tabHistory"]["lastOpenTabs"] = self.files
+            self.createInfoFile('history')
+            sys.exit()
 
 
     #################
@@ -732,27 +777,29 @@ class JSONitorWindow(QMainWindow):
             else:
                 self.statusMessage('The following file does not exist: {}'.format(filename), 2)
 
-    def saveFile(self, doDialog = 0):
-        tabInd = self.tabInd()
+    def saveFile(self, index=None, doDialog = 0):
+    # def saveFile(self, filename = None, doDialog = 0):
+        tabInd = self.tabInd() if not index else index
         filename = self.files[tabInd].replace('\\', '/')
+
         if not filename:
             self.saveAs()
-        fpText = self.getLineEdit().text().replace('\\', '/')
+        fpText = self.lineEdits[tabInd].text().replace('\\', '/')
         if doDialog:
             filename = QFileDialog.getSaveFileName(self, 'Save File', filter='*json')[0]
             if filename:
-                self.getLineEdit().setText(filename)
+                self.lineEdits[tabInd].setText(filename)
         elif filename != fpText:
             if os.path.isfile(fpText):
                 if self.quickPrompt('Save?', 'Do you want to OVERWRITE to the new filepath instead of the original?'):
                     filename = fpText
                 else:
-                    self.getLineEdit().setText(filename)
+                    self.lineEdits[tabInd].setText(filename)
             else:
                 if self.quickPrompt('Save?', 'Do you want to save to the new filepath instead of the original?'):
                     filename = fpText
                 else:
-                    self.getLineEdit().setText(filename)
+                    self.lineEdits[tabInd].setText(filename)
 
         if filename:
             proceed = True
@@ -785,7 +832,7 @@ class JSONitorWindow(QMainWindow):
                                     self.onTabClose(force=True)
                     self.onTabGo(tabInd)
                     if filename == self.settingsFile.replace('\\', '/'):
-                        self.loadSettings()
+                        self.loadInfoFile()
                 else:
                     self.statusMessage('User does not have write permissions to save to {}'.format(filename), 2)
             else:
@@ -1457,49 +1504,101 @@ class JSONitorWindow(QMainWindow):
                 self.saveFile()
 
 
-    def createSettingsFile(self):
-        with open(self.settingsFile, 'w') as f:
-            f.write(jsc.getJSONPretty(self.settings))
+    def createInfoFile(self, infoFile = 'settings'):
+        filename = None
+        workingDict = None
+        if infoFile == 'settings':
+            filename = self.settingsFile
+            workingDict = self.settings
+        elif infoFile == 'history':
+            filename = self.historyFile
+            workingDict = self.history
+        else: # catchall
+            filename = self.settingsFile
+            workingDict = self.settings
+
+        with open(filename, 'w') as f:
+            f.write(jsc.getJSONPretty(workingDict))
+
+        if self.files[self.tabInd()] == filename:
+            self.getTextEdit().setText(jsc.getJSONPretty(workingDict))
+            # self.saveFile
+            print('here')
 
 
     def openSettingsFile(self):
         self.openFile(self.settingsFile)
 
 
-    def resetSettingsFile(self):
-        # TODO clean up
-        try:
-            os.remove(self.settingsFile)
-            self.loadSettings()
-        except:
+    def resetInfoFile(self, infoFile = 'settings'):
+        filename = None
+        workingDict = None
+        defaultDict = None
+        if infoFile == 'settings':
+            filename = self.settingsFile
+            workingDict = self.settings
+            defaultDict = self.defaultSettings
+        elif infoFile == 'history':
+            filename = self.historyFile
+            workingDict = self.history
+            defaultDict = self.defaultHistory
+        else: # catchall
+            filename = self.settingsFile
+            workingDict = self.settings
+            defaultDict = self.defaultSettings
+
+        if os.access(filename, os.W_OK):
+            os.remove(filename)
+            for key in workingDict:
+                workingDict[key] = defaultDict[key]
+            print(self.settings)
+            self.loadInfoFile(infoFile)
             try:
-                self.statusMessage('Unable to reset settings file.  Make sure you have write access to the JSONitorSettings.json file.', 2)
+                self.statusMessage('Reset settings file.')
             except:
-                logger.error('Unable to reset settings file.  Make sure you have write access to the JSONitorSettings.json file.')
+                pass
+        else:
+            logger.error('Unable to reset settings file.  Make sure you have write access to the JSONitorSettings.json file.')
 
 
-    def loadSettings(self):
-        if os.path.isfile(self.settingsFile):
-            with open(self.settingsFile, 'r', encoding='utf-8-sig') as f:
+    def loadInfoFile(self, infoFile = 'settings'):
+        filename = None
+        workingDict = None
+        if infoFile == 'settings':
+            filename = self.settingsFile
+            workingDict = self.settings
+        elif infoFile == 'history':
+            filename = self.historyFile
+            workingDict = self.history
+        else: # catchall
+            filename = self.settingsFile
+            workingDict = self.settings
+
+        if os.path.isfile(filename):
+            with open(filename, 'r', encoding='utf-8-sig') as f:
                     data = f.read()
                     newDict = jsc.getDict(data)
                     if newDict:
-                        for key in self.settings:
-                            for subkey in self.settings[key]:
+                        for key in workingDict:
+                            for subkey in workingDict[key]:
                                 try:
-                                    self.settings[key][subkey] = newDict[key][subkey]
+                                    workingDict[key][subkey] = newDict[key][subkey]
                                 except:
                                     # Key does not yet exist
                                     pass
                     else:
-                        self.resetSettingsFile()
+                        self.resetInfoFile(infoFile)
         else:
-            self.createSettingsFile()
+            self.createInfoFile(infoFile)
 
 
         # Converter settings
         jsc.setSortKeys(self.settings["textSettings"]["alwaysSortKeysOnFormat"])
         jsc.setSortKeys(self.settings["textSettings"]["allowNaN"])
+
+        # Hidden maxes
+        if self.settings["undoSettings"]["maxUndos"] > self.absoluteMaxUndos:
+            self.settings["undoSettings"]["maxUndos"] == self.absoluteMaxUndos
 
 
     def marginLeftClick(self, margin_nr, line_nr, state):
