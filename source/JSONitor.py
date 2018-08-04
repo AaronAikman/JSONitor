@@ -130,6 +130,10 @@ class JSONitorWindow(QMainWindow):
         self.historyFile = '{}/JSONitorHistory.json'.format(sourcePath)
         self.absoluteMaxUndos = 500
         self.website = 'https://github.com/AaronAikman'
+        self.defaultWidth = 1280
+        self.defaultHeight = 720
+        self.defaultMaximized = False
+        self.isInitialized = False
 
         # Info
         self.pages = []
@@ -140,18 +144,24 @@ class JSONitorWindow(QMainWindow):
         self.treeViews = []
         self.undoButtons = []
         self.redoButtons = []
+        self.autoUpdateButtons = []
         self.searchBars = []
 
         # History
         self.recentlyClosedFiles = []
         self.recentlyAccessedTabs = []
         self.bookmarks = {}
-        self.textHistory = []
-        self.textHistoryIndex = None
+        self.textHistory = [[]]
+        self.textHistoryIndex = [None]
         self.foundMatches = []
         self.history = {
             "tabHistory" : {
                 "lastOpenTabs": [None]
+            },
+            "windowHistory" : {
+                "lastWindowWidth" : self.defaultWidth,
+                "lastWindowHeight" : self.defaultHeight,
+                "lastWindowMaximized" : self.defaultMaximized
             }
         }
 
@@ -206,13 +216,14 @@ class JSONitorWindow(QMainWindow):
         self.actionOpen.triggered.connect(self.getFile)
         self.actionSave.triggered.connect(self.saveFile)
         self.actionSave_As.triggered.connect(self.saveAs)
+        self.actionSave_All.triggered.connect(self.saveAll)
         self.actionNew.triggered.connect(self.newFile)
         self.actionClose.triggered.connect(self.onTabClose)
         self.actionReopen_Tab.triggered.connect(self.onTabReopen)
         self.actionCycle_Tabs.triggered.connect(self.onTabCycle)
         self.actionPrevious_Tab.triggered.connect(self.onTabPrev)
         self.actionNext_Tab.triggered.connect(self.onTabNext)
-        self.actionQuit.triggered.connect(self.closeWindow)
+        self.actionQuit.triggered.connect(self.close)
         self.actionUpdate_Tree_View.triggered.connect(self.updateTreeViewFromText)
         self.actionUpdate_Text.triggered.connect(self.updateTextFromTreeView)
         self.actionUndo.triggered.connect(self.undoTextChange)
@@ -224,6 +235,10 @@ class JSONitorWindow(QMainWindow):
         self.actionSettings.triggered.connect(self.openSettingsFile)
         self.actionReset_Settings.triggered.connect(self.resetInfoFile)
         self.actionAbout.triggered.connect(self.aboutDialog)
+        self.actionCopy_Text.triggered.connect(self.copyTextToClipboard)
+        self.actionPretty_Print_Text.triggered.connect(self.onTextPretty)
+        self.actionCompact_Text.triggered.connect(self.onTextCompact)
+        self.actionSort_Text_Alphabetically.triggered.connect(self.onTextSort)
 
         # Go options
         self.actionGo_to_Line.triggered.connect(self.goToLine)
@@ -376,7 +391,15 @@ class JSONitorWindow(QMainWindow):
                     if filename and os.path.isfile(filename):
                         self.openFile(filename)
 
-        self.show()
+        w = self.history["windowHistory"]["lastWindowWidth"]
+        h = self.history["windowHistory"]["lastWindowHeight"]
+        self.resize(w, h)
+        if self.history["windowHistory"]["lastWindowMaximized"]:
+            self.showMaximized()
+        else:
+            self.showNormal()
+
+        self.isInitialized = True
 
 
     ###################
@@ -384,7 +407,45 @@ class JSONitorWindow(QMainWindow):
     ###################
 
     def closeEvent(self, event):
-        self.closeWindow()
+        # TODO save temp files
+        saveAll = False
+        discardAll = False
+        doExit = True
+        for ind, filename in enumerate(self.files):
+            self.onTabGo(ind)
+            if discardAll:
+                continue
+            if self.tabs.tabText(ind)[-1] == '*':
+                if saveAll:
+                    self.saveFile(ind)
+                    continue
+                title = 'Save?'
+                message =  'Do you want to save {} before closing JSONitor?'.format(filename.split('/')[-1])
+                reply = QMessageBox.question(self, title,
+                        message, (QMessageBox.Yes | QMessageBox.No | QMessageBox.YesToAll | QMessageBox.NoToAll | QMessageBox.Cancel))
+                if reply == QMessageBox.Yes:
+                    self.saveFile(ind)
+                elif reply == QMessageBox.YesToAll:
+                    self.saveFile(ind)
+                    saveAll = True
+                elif reply == QMessageBox.NoToAll:
+                    discardAll = True
+                elif reply == QMessageBox.Cancel:
+                    doExit = False
+                    event.ignore()
+        if doExit:
+
+            logger.debug('Closing JSONitor')
+
+            # Set History
+            self.history["tabHistory"]["lastOpenTabs"] = self.files
+
+            self.history["windowHistory"]["lastWindowWidth"] = self.frameGeometry().width()
+            self.history["windowHistory"]["lastWindowHeight"] = self.frameGeometry().height()
+            self.history["windowHistory"]["lastWindowMaximized"] = self.isMaximized()
+
+            self.createInfoFile('history')
+            event.accept()
 
 
     def createLineEdit(self):
@@ -461,17 +522,13 @@ class JSONitorWindow(QMainWindow):
         self.lexer.setDefaultFont(self.monoFont)
         textEditor.setFolding(True)
 
-        # self.lexer = QsciLexerXML(textEditor)
-        # self.lexer = QsciLexerYAML(textEditor)
-
         textEditor.setAutoCompletionSource(QsciScintilla.AcsDocument)
         textEditor.setAutoCompletionThreshold(3)
         textEditor.setAutoCompletionCaseSensitivity(False)
 
         textEditor.setLexer(self.lexer)
 
-        # textEditor.setFont(self.monoFont)
-
+        # Connections
         textEditor.textChanged.connect(self.textEditChanged)
         textEditor.selectionChanged.connect(self.textEditSelectionChanged)
         textEditor.cursorPositionChanged.connect(self.updateLineColInfo)
@@ -479,15 +536,10 @@ class JSONitorWindow(QMainWindow):
         # Drops
         textEditor.setAcceptDrops(True)
 
-        # Cursor Visible
-        # textEditor.ensureCursorVisible()
-
         # Multiline Editing
         textEditor.SendScintilla(textEditor.SCI_SETADDITIONALSELECTIONTYPING, 1)
 
-        # textEditor.SendScintilla(textEditor.SCI_BRACEHIGHLIGHTINDICATOR, True)
-
-
+        # Margins
         textEditor.setMarginSensitivity(0, True)
         textEditor.setMarginSensitivity(1, True)
         textEditor.marginClicked.connect(self.marginLeftClick)
@@ -502,8 +554,10 @@ class JSONitorWindow(QMainWindow):
 
     def createTreeView(self):
         logger.debug('Creating Tree View')
-        # tree = json.loads(self.getTextEdit().text())
-        sampleJSON = jsc.getDict(self.getTextEdit().text())
+        sampleJSON = None
+        text = self.getTextEdit().text()
+        if text:
+            sampleJSON = jsc.getDict(text)
 
         itemModel = StandardItemModel()
         if sampleJSON:
@@ -543,20 +597,21 @@ class JSONitorWindow(QMainWindow):
         elif btnUse == 'autoUpdate':
             toolButton.setIcon(qta.icon('fa.circle-o-notch'))
             toolButton.setCheckable(True)
+            self.autoUpdateButtons.append(toolButton)
             toolButton.setChecked(self.autoUpdateViews)
             toolButton.clicked.connect(self.toggleAutoUpdateViews)
             toolButton.setToolTip('Auto Update - toggles the automatic update of text and tree views when one is edited.\n Note that warnings will be produced in the status bar if the process fails.')
         elif btnUse == 'format':
             toolButton.setIcon(qta.icon('fa.align-left'))
-            toolButton.clicked.connect(self.formatText)
+            toolButton.clicked.connect(self.onTextPretty)
             toolButton.setToolTip('Pretty Print: Format Text View into pretty-printed JSON')
         elif btnUse == 'compact':
             toolButton.setIcon(qta.icon('fa.align-justify'))
-            toolButton.clicked.connect(self.compactText)
+            toolButton.clicked.connect(self.onTextCompact)
             toolButton.setToolTip('Compact: Format Text View into compact JSON with no whitespace')
-        elif btnUse == 'sortText':
+        elif btnUse == 'onTextSort':
             toolButton.setIcon(qta.icon('fa.sort-alpha-asc'))
-            toolButton.clicked.connect(self.sortText)
+            toolButton.clicked.connect(self.onTextSort)
             toolButton.setToolTip('Sort Text Alphabetically')
         elif btnUse == 'sortTree':
             toolButton.setIcon(qta.icon('fa.sort-alpha-asc'))
@@ -655,7 +710,7 @@ class JSONitorWindow(QMainWindow):
                                             ('t', self.createToolButton('redo')),
                                             ('t', self.createToolButton('compact')),
                                             ('t', self.createToolButton('format')),
-                                            ('t', self.createToolButton('sortText')),
+                                            ('t', self.createToolButton('onTextSort')),
                                             ('t', self.createToolButton('copy')),
                                             ('t', self.createHorizSpacer()),
                                             ('t', self.createToolButton('left')),
@@ -685,37 +740,6 @@ class JSONitorWindow(QMainWindow):
                         message, (QMessageBox.Ok))
 
 
-    def closeWindow(self):
-        logger.debug('Closing JSONitor')
-        # TODO save temp files
-        saveAll = False
-        discardAll = False
-        doExit = True
-        for ind, filename in enumerate(self.files):
-            self.onTabGo(ind)
-            if discardAll:
-                continue
-            if self.tabs.tabText(ind)[-1] == '*':
-                if saveAll:
-                    self.saveFile(ind)
-                    continue
-                title = 'Save?'
-                message =  'Do you want to save {} before closing JSONitor?'.format(filename.split('/')[-1])
-                reply = QMessageBox.question(self, title,
-                        message, (QMessageBox.Yes | QMessageBox.No | QMessageBox.YesToAll | QMessageBox.NoToAll | QMessageBox.Cancel))
-                if reply == QMessageBox.Yes:
-                    self.saveFile(ind)
-                elif reply == QMessageBox.YesToAll:
-                    self.saveFile(ind)
-                    saveAll = True
-                elif reply == QMessageBox.NoToAll:
-                    discardAll = True
-                elif reply == QMessageBox.Cancel:
-                    doExit = False
-        if doExit:
-            self.history["tabHistory"]["lastOpenTabs"] = self.files
-            self.createInfoFile('history')
-            sys.exit()
 
 
     #################
@@ -761,6 +785,8 @@ class JSONitorWindow(QMainWindow):
                 self.setWindowTitle('{} - {}'.format(self.title, os.path.basename(filename)))
                 tabName = os.path.splitext(os.path.basename(self.getLineEdit().text()))[0]
                 self.tabs.setTabText(self.tabInd(), tabName)
+                self.textHistory.append([])
+                self.textHistoryIndex.append(None)
                 self.updateTreeViewFromText()
                 self.statusMessage('Opened file: {}'.format(filename))
             else:
@@ -828,9 +854,17 @@ class JSONitorWindow(QMainWindow):
                 self.statusMessage('The following text is not valid JSON. The settings file will not be saved. {}'.format(newText), 2)
 
 
-
     def saveAs(self):
         self.saveFile(1)
+
+
+    def saveAll(self):
+        curTabInd = self.tabInd()
+        for ind, filename in enumerate(self.files):
+            self.onTabGo(ind)
+            if self.tabs.tabText(ind)[-1] == '*':
+                self.saveFile(ind)
+        self.onTabGo(curTabInd)
 
 
     #################
@@ -863,11 +897,12 @@ class JSONitorWindow(QMainWindow):
             del self.undoButtons[tabIndex]
             del self.redoButtons[tabIndex]
             del self.searchBars[tabIndex]
+            del self.textHistory[tabIndex]
+            del self.textHistoryIndex[tabIndex]
 
 
     def onTabGo(self, ind):
-        # ind -= 1
-        if (len(self.pages) - 1) > ind:
+        if len(self.pages) > ind:
             self.tabs.setCurrentIndex(ind)
 
 
@@ -1274,53 +1309,48 @@ class JSONitorWindow(QMainWindow):
 
 
     def undoTextChange(self):
-        if self.textHistory:
-            if self.textHistoryIndex == (len(self.textHistory) - 1):
-                if self.getTextEdit().text() != self.textHistory[self.textHistoryIndex]:
+        tabInd = self.tabInd()
+        if self.textHistory[tabInd]:
+            if self.textHistoryIndex[tabInd] == (len(self.textHistory[tabInd]) - 1):
+                if self.getTextEdit().text() != self.textHistory[tabInd][self.textHistoryIndex[tabInd]]:
                     self.storeTextBackup(setIndex=False)
-                    self.textHistoryIndex += 1
-            self.textHistoryIndex -= 1
-            self.getTextEdit().setText(self.textHistory[self.textHistoryIndex])
+                    self.textHistoryIndex[tabInd] += 1
+            self.textHistoryIndex[tabInd] -= 1
+            self.getTextEdit().setText(self.textHistory[tabInd][self.textHistoryIndex[tabInd]])
             self.setUndoRedoButtons()
 
 
     def redoTextChange(self):
-        if self.textHistory:
-            if self.textHistoryIndex < (len(self.textHistory) - 1):
-                self.textHistoryIndex += 1
-                self.getTextEdit().setText(self.textHistory[self.textHistoryIndex])
+        tabInd = self.tabInd()
+        if self.textHistory[tabInd]:
+            if self.textHistoryIndex[tabInd] < (len(self.textHistory[tabInd]) - 1):
+                self.textHistoryIndex[tabInd] += 1
+                self.getTextEdit().setText(self.textHistory[tabInd][self.textHistoryIndex[tabInd]])
             self.setUndoRedoButtons()
 
 
     def setUndoRedoButtons(self):
-        if self.textHistoryIndex < (len(self.textHistory) - 1):
-            for redoButton in self.redoButtons:
-                redoButton.setEnabled(True)
+        tabInd = self.tabInd()
+        if self.textHistoryIndex[tabInd] < (len(self.textHistory[tabInd]) - 1):
+            self.redoButtons[tabInd].setEnabled(True)
         else:
-            for redoButton in self.redoButtons:
-                redoButton.setEnabled(False)
+            self.redoButtons[tabInd].setEnabled(False)
 
-        if self.textHistoryIndex:
-            for undoButton in self.undoButtons:
-                undoButton.setEnabled(True)
+        if self.textHistoryIndex[tabInd]:
+            self.undoButtons[tabInd].setEnabled(True)
         else:
-            for undoButton in self.undoButtons:
-                undoButton.setEnabled(False)
+            self.undoButtons[tabInd].setEnabled(False)
 
 
     def storeTextBackup(self, setIndex=True):
-        # TODO Store history for each tab
-        # TODO set undo redo buttons enabled when switching tabs
-        self.textHistory.append(self.getTextEdit().text())
-        if len(self.textHistory) > self.settings["undoSettings"]["maxUndos"]:
-            del self.textHistory[0]
+        tabInd = self.tabInd()
+        self.textHistory[tabInd].append(self.getTextEdit().text())
+        if len(self.textHistory[tabInd]) > self.settings["undoSettings"]["maxUndos"]:
+            del self.textHistory[tabInd][0]
         if setIndex:
-            self.textHistoryIndex = (len(self.textHistory) - 1)
-            # self.setUndoRedoButtons()
-            for redoButton in self.redoButtons:
-                redoButton.setEnabled(False)
-            for undoButton in self.undoButtons:
-                undoButton.setEnabled(True)
+            self.textHistoryIndex[tabInd] = (len(self.textHistory[tabInd]) - 1)
+            self.redoButtons[tabInd].setEnabled(False)
+            self.undoButtons[tabInd].setEnabled(True)
 
 
     def setFocusToFind(self):
@@ -1339,13 +1369,13 @@ class JSONitorWindow(QMainWindow):
         return '{}{}{}'.format(text[:index], replacement, text[index+1:])
 
 
-    def sortText(self):
+    def onTextSort(self):
         jsc.sortKeys = True
-        self.formatText()
+        self.onTextPretty()
         jsc.sortKeys = False
 
 
-    def formatText(self):
+    def onTextPretty(self):
         self.storeTextBackup()
         textEdit = self.getTextEdit()
         dictText = jsc.getDict(textEdit.text())
@@ -1354,13 +1384,13 @@ class JSONitorWindow(QMainWindow):
             textEdit.setText(prettyText)
 
 
-    def compactText(self):
+    def onTextCompact(self):
         self.storeTextBackup()
         textEdit = self.getTextEdit()
         dictText = jsc.getDict(textEdit.text())
         if dictText:
-            compactText = jsc.getJSONCompact(dictText)
-            textEdit.setText(compactText)
+            onTextCompact = jsc.getJSONCompact(dictText)
+            textEdit.setText(onTextCompact)
 
 
     def textEditSelectionChanged(self):
@@ -1466,6 +1496,8 @@ class JSONitorWindow(QMainWindow):
 
     def toggleAutoUpdateViews(self):
         self.autoUpdateViews = not self.autoUpdateViews
+        for btn in self.autoUpdateButtons:
+            btn.setChecked(self.autoUpdateViews)
 
 
     def copyTextToClipboard(self):
@@ -1516,7 +1548,7 @@ class JSONitorWindow(QMainWindow):
         with open(filename, 'w') as f:
             f.write(jsc.getJSONPretty(workingDict))
 
-        if self.files[self.tabInd()] == filename:
+        if self.isInitialized and self.files[self.tabInd()] == filename:
             self.getTextEdit().setText(jsc.getJSONPretty(workingDict))
             # self.saveFile
             print('here')
@@ -1549,10 +1581,10 @@ class JSONitorWindow(QMainWindow):
                 workingDict[key] = defaultDict[key]
             print(self.settings)
             self.loadInfoFile(infoFile)
-            try:
+            if self.isInitialized:
                 self.statusMessage('Reset settings file.')
-            except:
-                pass
+            else:
+                logger.info('Reset settings file.')
         else:
             logger.error('Unable to reset settings file.  Make sure you have write access to the JSONitorSettings.json file.')
 

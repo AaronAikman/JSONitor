@@ -75,6 +75,7 @@
     <addaction name="separator"/>
     <addaction name="actionSave"/>
     <addaction name="actionSave_As"/>
+    <addaction name="actionSave_All"/>
     <addaction name="separator"/>
     <addaction name="actionClose"/>
     <addaction name="actionReopen_Tab"/>
@@ -93,6 +94,8 @@
     </property>
     <addaction name="actionUndo"/>
     <addaction name="actionRedo"/>
+    <addaction name="separator"/>
+    <addaction name="actionCopy_Text"/>
     <addaction name="separator"/>
     <addaction name="actionFind"/>
     <addaction name="actionFind_All"/>
@@ -133,9 +136,12 @@
      </property>
     </widget>
     <addaction name="menuGo_to_Tab"/>
+    <addaction name="separator"/>
     <addaction name="menuSet_Bookmark"/>
     <addaction name="menuGo_Bookmark"/>
+    <addaction name="separator"/>
     <addaction name="actionGo_to_Line"/>
+    <addaction name="separator"/>
     <addaction name="actionSet_Focus_To_Text_View"/>
     <addaction name="actionSet_Focus_To_Tree_View"/>
    </widget>
@@ -145,6 +151,11 @@
     </property>
     <addaction name="actionUpdate_Text"/>
     <addaction name="actionUpdate_Tree_View"/>
+    <addaction name="separator"/>
+    <addaction name="actionPretty_Print_Text"/>
+    <addaction name="actionCompact_Text"/>
+    <addaction name="separator"/>
+    <addaction name="actionSort_Text_Alphabetically"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuEdit"/>
@@ -451,6 +462,37 @@
   <action name="actionReset_Settings">
    <property name="text">
     <string>Reset Settings</string>
+   </property>
+  </action>
+  <action name="actionCopy_Text">
+   <property name="text">
+    <string>Copy Text</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+C</string>
+   </property>
+  </action>
+  <action name="actionPretty_Print_Text">
+   <property name="text">
+    <string>Pretty Print Text</string>
+   </property>
+  </action>
+  <action name="actionCompact_Text">
+   <property name="text">
+    <string>Compact Text</string>
+   </property>
+  </action>
+  <action name="actionSort_Text_Alphabetically">
+   <property name="text">
+    <string>Sort Text Alphabetically</string>
+   </property>
+  </action>
+  <action name="actionSave_All">
+   <property name="text">
+    <string>Save All</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Alt+S</string>
    </property>
   </action>
  </widget>
