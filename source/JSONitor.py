@@ -17,6 +17,7 @@ go to file
 fix backslash consistency
 add shortcuts to settings
 fix styling
+fix icon not showing in windows taskbar
 
 LINE EDIT
 Up down arrows to search through dir

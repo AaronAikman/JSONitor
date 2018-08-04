@@ -1,0 +1,5 @@
+pyperclip==1.6.4
+QtAwesome==0.4.4
+PyQt5==5.11.2
+Qscintilla==2.10.7
+
