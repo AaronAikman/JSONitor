@@ -3,32 +3,22 @@
 
 TODO
 TEXT EDIT
-add drag and drop
-copy/paste
-recently closed files
-add comparison
-*add an About
+*add drag and drop
+*copy/paste
 save temp files/autosave
-Use json file for ui colors/settings
-*find and replace
+proper replace?
 proper Undo stack
-copy to clipboard
 Feedback/email
 select Occurence
-select all Occurences
 Ctrl up and down to scroll
 ability to resize pane middle
-*add line edit to panes for searching (itemModel.findItems)
-*close window, ask save if any tab has unsaved changes
-save tabs on close
-*fix undo
 set vars on tab switch to avoid having to get index all the time?
 *undo stack for tree view
 go to file
-*settings
 fix backslash consistency
+add shortcuts to settings
 
-# *fix styling or remove
+*fix styling
 
 LINE EDIT
 Up down arrows to search through dir
@@ -38,16 +28,6 @@ JSON
 conversion to (xml, csv, yaml)?
 *validation help
 use margin clicks for reordering elements
-compensate for NaN, Infinity, -Infinity?
-
-TREE VIEW
-expand/collapse buttons
-add lengths and indexing
-icons for types
-duplicate
-insert
-remove
-sort
 
 MORE
 Unit tests (open files, store compact json, convert to tree view and back, check against compact json)
@@ -89,13 +69,13 @@ import Utilities.JSONTools as jst
 # Logger Setup #
 ################
 
-# TODO Move logger to module?
+# TODO Move logger
 appTitle = 'JSONitor'
 
 userName = getpass.getuser()
 
 # Log File
-sourcePath = os.path.dirname(os.path.realpath(__file__))
+sourcePath = os.path.dirname(os.path.realpath(__file__)).replace('\\', '/')
 logFileName = '{}.log'.format(appTitle)
 logFile = '{}/{}'.format(sourcePath, logFileName)
 
@@ -149,6 +129,7 @@ class JSONitorWindow(QMainWindow):
         self.settingsFile = '{}/JSONitorSettings.json'.format(sourcePath)
         self.historyFile = '{}/JSONitorHistory.json'.format(sourcePath)
         self.absoluteMaxUndos = 500
+        self.website = 'https://github.com/AaronAikman'
 
         # Info
         self.pages = []
@@ -242,6 +223,7 @@ class JSONitorWindow(QMainWindow):
         self.actionSet_Focus_To_Tree_View.triggered.connect(self.setFocusToTreeEdit)
         self.actionSettings.triggered.connect(self.openSettingsFile)
         self.actionReset_Settings.triggered.connect(self.resetInfoFile)
+        self.actionAbout.triggered.connect(self.aboutDialog)
 
         # Go options
         self.actionGo_to_Line.triggered.connect(self.goToLine)
@@ -696,6 +678,13 @@ class JSONitorWindow(QMainWindow):
             self.getTextEdit().setFocus()
 
 
+    def aboutDialog(self):
+        title = 'About'
+        message = 'JSONitor v{}\nby Aaron Aikman\n\nLog File: {}\n\nSettings File: {}\n\nHistory File: {}\n\nFor more info, visit {}\n'.format(versionNumber, logFile, self.settingsFile, self.historyFile, self.website)
+        QMessageBox.question(self, title,
+                        message, (QMessageBox.Ok))
+
+
     def closeWindow(self):
         logger.debug('Closing JSONitor')
         # TODO save temp files
@@ -849,24 +838,31 @@ class JSONitorWindow(QMainWindow):
     #################
 
     def onTabClose(self, force=False):
+        doExit = True
         if not force:
             if self.tabs.tabText(self.tabInd())[-1] == '*':
-                if self.quickPrompt('Save?', 'Do you want to save before closing the tab?'):
+                title = 'Save?'
+                message = 'Do you want to save {} before closing the tab?'.format(self.tabs.tabText(self.tabInd()))
+                reply = QMessageBox.question(self, title,
+                        message, (QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel))
+                if reply == QMessageBox.Yes:
                     self.saveFile()
+                elif reply == QMessageBox.Cancel:
+                    doExit = False
+        if doExit:
+            tabIndex = self.tabInd()
+            self.recentlyClosedFiles.append(self.files[self.tabInd()])
+            self.tabs.removeTab(tabIndex)
 
-        tabIndex = self.tabInd()
-        self.recentlyClosedFiles.append(self.files[self.tabInd()])
-        self.tabs.removeTab(tabIndex)
-
-        del self.pages[tabIndex]
-        del self.textEditors[tabIndex]
-        del self.lineEdits[tabIndex]
-        del self.files[tabIndex]
-        del self.itemModels[tabIndex]
-        del self.treeViews[tabIndex]
-        del self.undoButtons[tabIndex]
-        del self.redoButtons[tabIndex]
-        del self.searchBars[tabIndex]
+            del self.pages[tabIndex]
+            del self.textEditors[tabIndex]
+            del self.lineEdits[tabIndex]
+            del self.files[tabIndex]
+            del self.itemModels[tabIndex]
+            del self.treeViews[tabIndex]
+            del self.undoButtons[tabIndex]
+            del self.redoButtons[tabIndex]
+            del self.searchBars[tabIndex]
 
 
     def onTabGo(self, ind):
