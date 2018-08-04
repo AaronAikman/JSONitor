@@ -1,13 +1,13 @@
 # JSONitor
 #### by Aaron Aikman
 
-##Summary
+## Summary
 
 
 A JSON Editor for manipulating JSON files in text and tree views.
 
 ## Preview
-![PreviewImage](https://imgur.com/a/TFZCz9g)
+![PreviewImage](https://imgur.com/00NUuRO)
 
 ## Getting started
 
