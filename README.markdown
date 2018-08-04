@@ -7,7 +7,7 @@
 A JSON Editor for manipulating JSON files in text and tree views.
 
 ## Preview
-![PreviewImage](https://imgur.com/00NUuRO)
+![PreviewImage](https://imgur.com/00NUuRO.jpg)
 
 ## Getting started
 
