@@ -88,7 +88,7 @@ fh = logging.FileHandler(logFile)
 fh.setLevel(logging.INFO)
 
 # Version Number
-versionNumber = '1.0.1'
+versionNumber = '1.0.2'
 
 # Create formatter
 formatter = logging.Formatter('%(asctime)s - %(name)s {} - {} - %(levelname)s - %(message)s'.format(versionNumber, userName))
@@ -854,7 +854,7 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
     def saveAs(self):
-        self.saveFile(1)
+        self.saveFile(doDialog=1)
 
 
     def saveAll(self):

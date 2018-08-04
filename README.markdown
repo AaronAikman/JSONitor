@@ -139,10 +139,15 @@ For a fresh run, you may try deletting the JSONitorSetting.json and JSONitorHist
 
 ## Version
 
-* Version: 1.0.1
+* Version: 1.0.2
 * Release Date: 2018-08-04
 
 ## Revision History
+
+### Version 1.0.2
+
+* Release Date: 2018-08-04
+* Changes: Fixed SaveAs error
 
 ### Version 1.0.1
 
