@@ -28,6 +28,11 @@ Once the requirements are installed, you can run JSONitor using Python 3 in the 
 
 The application window should appear.
 
+### Platform notes
+Developed for Windows
+
+Untested on other platforms
+
 ## Usage
 
 Has many functions of a regular text editor, but also features a tree view which can be edited and transferred back to JSON in the text view.
