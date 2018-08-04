@@ -3,22 +3,19 @@
 
 TODO
 TEXT EDIT
-*add drag and drop
-*copy/paste
+*add drag and drop files
 save temp files/autosave
-proper replace?
+proper replace
 proper Undo stack
 Feedback/email
 select Occurence
 Ctrl up and down to scroll
 ability to resize pane middle
 set vars on tab switch to avoid having to get index all the time?
-*undo stack for tree view
 go to file
 fix backslash consistency
 add shortcuts to settings
-
-*fix styling
+fix styling
 
 LINE EDIT
 Up down arrows to search through dir
@@ -30,7 +27,6 @@ conversion to (xml, csv, yaml)?
 use margin clicks for reordering elements
 
 MORE
-Unit tests (open files, store compact json, convert to tree view and back, check against compact json)
 remove index from bookmarks when tab closed and shift other tab indices
 Format Commenting
 make sure var names are consistent/descriptive
@@ -93,15 +89,10 @@ versionNumber = '1.0.1'
 formatter = logging.Formatter('%(asctime)s - %(name)s {} - {} - %(levelname)s - %(message)s'.format(versionNumber, userName))
 fh.setFormatter(formatter)
 
-# TODO Check this
-# reomoving prexisting handlers (NOTE may be unnecessary)
 for lHand in logger.handlers:
     logger.removeHandler(lHand)
 logger.addHandler(fh)
 
-# TODO Check this
-# NOTE May need to be set to 0 in order to prevent logging from bubbling up to maya's logger
-# logger.propagate=1
 logger.info('{} Initiated'.format(appTitle))
 
 
@@ -530,7 +521,6 @@ class JSONitorWindow(QMainWindow):
 
         # Connections
         textEditor.textChanged.connect(self.textEditChanged)
-        textEditor.selectionChanged.connect(self.textEditSelectionChanged)
         textEditor.cursorPositionChanged.connect(self.updateLineColInfo)
 
         # Drops
@@ -683,7 +673,6 @@ class JSONitorWindow(QMainWindow):
         vbox = QVBoxLayout()
         toolbar = QHBoxLayout()
         hbox = QHBoxLayout()
-        # TODO fix to allow for specific ordering
         for lyt, c in contents:
             if lyt == 'v':
                 vbox.addWidget(c)
@@ -1243,7 +1232,6 @@ class JSONitorWindow(QMainWindow):
                         self.foundMatches = []
             else:
                 textEdit.SendScintilla(textEdit.SCI_CLEARSELECTIONS)
-        # TODO fix repet
         else:
             textEdit.SendScintilla(textEdit.SCI_CLEARSELECTIONS)
 
@@ -1393,12 +1381,6 @@ class JSONitorWindow(QMainWindow):
             textEdit.setText(onTextCompact)
 
 
-    def textEditSelectionChanged(self):
-        pass
-        # TODO fix
-        # textEdit = self.getTextEdit()
-        # textEdit.SendScintilla(textEdit.SCI_CLEARSELECTIONS)
-
     def textEditChanged(self):
         tabName = '{}*'.format(os.path.splitext(os.path.basename(self.getLineEdit().text()))[0])
         self.tabs.setTabText(self.tabInd(), tabName)
@@ -1523,7 +1505,6 @@ class JSONitorWindow(QMainWindow):
 
 
     def lineEditEnter(self):
-        # TODO maybe add a separate button for open
         filepathText = self.getLineEdit().text()
         if filepathText:
             if os.path.isfile(filepathText):
