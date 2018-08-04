@@ -1,0 +1,1 @@
+C:\Python36\Scripts\pyuic5.exe JSONitor.ui -o JSONitorUI.py

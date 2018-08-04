@@ -1,3 +1,4 @@
+
 '''
 
 
@@ -47,16 +48,19 @@ import time
 import logging
 import getpass
 import re
+import copy
 
 from PyQt5 import uic
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.Qsci import *
+from PyQt5 import sip
+
+from JSONitorUI import Ui_MainWindow
 
 import qtawesome as qta
 import pyperclip
-import copy
 
 import Utilities.JSONTools as jst
 
@@ -107,9 +111,11 @@ jsc = jst.JSONConverter(logger)
 # UI #
 ######
 
-class JSONitorWindow(QMainWindow):
+class JSONitorWindow(QMainWindow, Ui_MainWindow):
     def __init__(self):
         super().__init__()
+        # PY UI File
+        super(Ui_MainWindow).__init__()
 
         # System Settings
         self.title = 'JSONitor (JSON Editor by Aaron Aikman)'
@@ -199,9 +205,12 @@ class JSONitorWindow(QMainWindow):
         logger.debug('Initializing UI')
 
         # UI File
-        uiFile = os.path.dirname(os.path.realpath(__file__)) + '\\JSONitor.ui'
-        logger.debug('UI file is: {}'.format(uiFile))
-        uic.loadUi(uiFile, self)
+        # uiFile = os.path.dirname(os.path.realpath(__file__)) + '\\JSONitor.ui'
+        # logger.debug('UI file is: {}'.format(uiFile))
+        # uic.loadUi(uiFile, self)
+
+        # PY UI File
+        self.setupUi(self)
 
         # Actions
         self.actionOpen.triggered.connect(self.getFile)
