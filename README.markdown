@@ -73,7 +73,7 @@ Press Ctrl+Enter to focus the Text View
 #### Bookmarks and Tabs
 ![BookmarksAndTabs](https://imgur.com/V1zHp8w.gif)
 
-Tabs may be accessed specifially using Ctrl+(0-9)
+Tabs may be accessed specifically using Ctrl+(0-9)
 
 Tabs may by cycled using Ctrl+Tab
 
@@ -146,7 +146,7 @@ The log file, created in whichever folder JSONitor is run from, provides informa
 If you encounter any errors in the code, please file an issue on github: [https://github.com/AaronAikman/JSONitor/issues](https://github.com/AaronAikman/JSONitor/issues).
 
 ### Basic Troubleshooting
-For a fresh run, you may try deletting the JSONitorSetting.json and JSONitorHistory.json files, and running again.
+For a fresh run, you may try deleting the JSONitorSetting.json and JSONitorHistory.json files, and running again.
 
 ## Author
 
