@@ -13,7 +13,7 @@ A JSON Editor for manipulating JSON files in text and tree views.
 
 ### EXE
 
-It is recommended to simply copy `JSONitor.exe` to where you would like to store the executable and generated info file.  From there, you may double-click to run the exe.
+It is recommended to simply copy `JSONitor.exe` to where you would like to store the executable and generated info files.  From there, you may double-click to run the exe.
 
 ### Python Install
 
@@ -63,6 +63,8 @@ Click the cycle icon at top middle of the window to enable Auto Updating of Text
 Press Ctrl+F to focus the find bar
 
 Start typing to find entries in the Text View
+
+Note that non-alphanumeric or whitespace characters will be ignored unless the search is valid regex.
 
 Press Enter to find the next match
 
@@ -156,10 +158,18 @@ For a fresh run, you may try deleting the JSONitorSetting.json and JSONitorHisto
 
 ## Version
 
-* Version: 1.0.2
-* Release Date: 2018-08-04
+* Version: 1.0.3
+* Release Date: 2018-08-05
 
 ## Revision History
+
+### Version 1.0.3
+
+* Release Date: 2018-08-05
+* Changes:
+    * Fixed Search bar crash on invalid input
+    * Added option for regex to search bar
+    * Fixed autoSyntax bug when backspacing before braces or brackets
 
 ### Version 1.0.2
 

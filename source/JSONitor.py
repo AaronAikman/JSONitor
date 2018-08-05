@@ -50,6 +50,7 @@ import logging
 import getpass
 import re
 import copy
+import string
 
 from PyQt5 import uic
 from PyQt5.QtWidgets import *
@@ -88,7 +89,7 @@ fh = logging.FileHandler(logFile)
 fh.setLevel(logging.INFO)
 
 # Version Number
-versionNumber = '1.0.2'
+versionNumber = '1.0.3'
 
 # Create formatter
 formatter = logging.Formatter('%(asctime)s - %(name)s {} - {} - %(levelname)s - %(message)s'.format(versionNumber, userName))
@@ -127,7 +128,7 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
         self.settingsFile = '{}/JSONitorSettings.json'.format(sourcePath)
         self.historyFile = '{}/JSONitorHistory.json'.format(sourcePath)
         self.absoluteMaxUndos = 500
-        self.website = 'https://github.com/AaronAikman'
+        self.website = 'https://github.com/AaronAikman/JSONitor'
         self.defaultWidth = 1280
         self.defaultHeight = 720
         self.defaultMaximized = False
@@ -474,7 +475,7 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
         lineEdit.setFont(self.monoFont)
         lineEdit.textChanged.connect(self.searchBarTextChanged)
         lineEdit.returnPressed.connect(self.searchBarReturnPressed)
-        lineEdit.setToolTip('Begin typing to select a match.  Press Ctrl+Shift+F to select all match. Press Enter to go to the next match.  Press Ctrl+Enter to focus the Text View')
+        lineEdit.setToolTip('Begin typing to select a match.  Note that non-alphanumeric or whitespace characters will be ignored unless it is valid regex. Press Ctrl+Shift+F to select all match. Press Enter to go to the next match.  Press Ctrl+Enter to focus the Text View')
         self.searchBars.append(lineEdit)
         # # if self.settings["stylingSettings"]["doStyling"]:
             # # # lineEdit.setStyleSheet(self.settings["stylingSettings"]["searchBarStyleSheet"])
@@ -1198,6 +1199,11 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
         # TODO optimize
         if not searchText:
             searchText = self.getSearchBar().text()
+        # removing unwanted chars
+        try:
+            re.compile(searchText)
+        except:
+            searchText =  re.sub(r'[^a-zA-Z0-9 ]+', '', searchText)
         textEdit = self.getTextEdit()
         text = textEdit.text()
         if not self.findMatchCase:
@@ -1442,8 +1448,12 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
                     if lastTypedChar == '{':
                         replaceStr = r'{}'
+                        if nextChar == '}':
+                            proceed = False
                     elif lastTypedChar == '[':
                         replaceStr = '[]'
+                        if nextChar == ']':
+                            proceed = False
                     elif lastTypedChar == '"':
                         # TODO fix inability to backspace first " if there are two in a row
                         replaceStr = '""'
