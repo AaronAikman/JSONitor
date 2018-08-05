@@ -114,6 +114,16 @@ Press Ctrl+W to close a tab
 
 Press Ctrl+Shift+T to reopen closed tabs
 
+#### Path Bar Save
+![PathBarSave](https://imgur.com/Xr9ken3.gif)
+
+Type in the Path Bar (the filepath at the top of the window) and press Ctrl+S to save the file as the newly typed filepath
+
+#### Path Bar Open
+![PathBarOpen](https://imgur.com/Gqd6gDD.gif)
+
+Type in the Path Bar (the filepath at the top of the window) and press Enter to open the file at the newly typed filepath if it exists or save the current file if it does not
+
 ### Additional Features
 Save All
 
