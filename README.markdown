@@ -13,16 +13,16 @@ A JSON Editor for manipulating JSON files in text and tree views.
 
 ### EXE
 
-It is recommend to simply copy `JSONitor.exe` to where you would like to store the executable and generated info file.  From there, you may double click to run the exe.
+It is recommended to simply copy `JSONitor.exe` to where you would like to store the executable and generated info file.  From there, you may double-click to run the exe.
 
 ### Python Install
 
-If preferred or if they above method does not work, you may install
+If preferred or if the above method does not work, you may install
 module requirements (PyQt5, Qscintilla, QtAwesome, and Pyperclip) by changing to the source folder and running:
 
     pip3 install -r requirements.txt
 
-Once the requirements are installed, you can run JSONitor using Python 3 in the source folder.
+Once the requirements are installed, you can run JSONitor through Python 3 from the source folder.
 
     python3 JSONitor.py
 
@@ -35,7 +35,7 @@ Untested on other platforms
 
 ## Usage
 
-Has many functions of a regular text editor, but also features a tree view which can be edited and transferred back to JSON in the text view.
+JSONitor has many functions of a regular text editor, but also features a tree view which can be edited and transferred back to JSON in the text view.
 
 #### Tree View Basics
 ![TreeViewBasics](https://imgur.com/Lxs1yfD.gif)
@@ -62,13 +62,13 @@ Click the cycle icon at top middle of the window to enable Auto Updating of Text
 
 Press Ctrl+F to focus the find bar
 
-Start typing the find entries in the Text View
+Start typing to find entries in the Text View
 
-Press Return to find the next match
+Press Enter to find the next match
 
 Press Ctrl+Shift+F to select all matches in the Text View
 
-Press Ctrl+Return to focus the Text View
+Press Ctrl+Enter to focus the Text View
 
 #### Bookmarks and Tabs
 ![BookmarksAndTabs](https://imgur.com/V1zHp8w.gif)
@@ -117,11 +117,13 @@ Press Ctrl+Shift+T to reopen closed tabs
 ### Additional Features
 Save All
 
-Save On Close
+Save on Close
 
-Remembering Open Tabs
+Remembering Open Tabs on Close
 
-Remembering Window Sizes
+Remembering Window Sizes on Close
+
+JSON Syntax Highlighting
 
 
 
