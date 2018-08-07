@@ -28,7 +28,7 @@ Once the requirements are installed, you can run JSONitor through Python 3 from 
 
 The application window should appear.
 
-### Platform notes
+### Platform Notes
 Developed for Windows
 
 Untested on other platforms

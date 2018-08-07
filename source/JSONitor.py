@@ -409,6 +409,9 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
     ###################
 
     def closeEvent(self, event):
+        """ On window close, check for  files to save and store tab/window size info
+        """
+
         # TODO save temp files
         saveAll = False
         discardAll = False
@@ -451,6 +454,8 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
     def createLineEdit(self):
+        """ Returns a line edit for filepaths
+        """
         logger.debug('Creating Line Edit')
         lineEdit = QLineEdit()
         lineEdit.setFont(self.monoFont)
@@ -469,6 +474,8 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
     def createSearchBar(self):
+        """ Returns a search bar for finding in the text view
+        """
         logger.debug('Creating Search bar')
         lineEdit = QLineEdit()
         lineEdit.setFixedWidth(140)
@@ -483,6 +490,8 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
     def createTextEditor(self):
+        """ Returns a text editor extended from Qscintilla
+        """
         logger.debug('Creating Text Editor')
 
         # Instance
@@ -554,6 +563,8 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
     def createTreeView(self):
+        """ Returns a tree view which can be modified to alter the JSON
+        """
         logger.debug('Creating Tree View')
         sampleJSON = None
         text = self.getTextEdit().text()
@@ -584,6 +595,8 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
     def createToolButton(self, btnUse):
+        """ Returns and connects a variety of tool buttons, as indicated by btnUse
+        """
         logger.debug('Creating Tool Button')
         toolButton = QToolButton()
         # toolButton = QPButton()
@@ -675,10 +688,14 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
     def createHorizSpacer(self):
+        """ Returns a horizontal spacer
+        """
         return QSplitter()
 
 
     def createPage(self, *contents):
+        """ Returns a widget with all the argument contents added as widgets
+        """
         logger.debug('Creating page')
         page = QWidget()
         vbox = QVBoxLayout()
@@ -699,6 +716,8 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
     def addPage(self, setFocusOn=True):
+        """ Adds a page to the tab layout
+        """
         logger.debug('Adding page')
         self.pages.append( self.createPage(
                                             ('v', self.createLineEdit()),
@@ -734,6 +753,8 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
     def aboutDialog(self):
+        """ Opens an information about dialog
+        """
         title = 'About'
         message = 'JSONitor v{}\nby Aaron Aikman\n\nLog File: {}\n\nSettings File: {}\n\nHistory File: {}\n\nFor more info, visit {}\n'.format(versionNumber, logFile, self.settingsFile, self.historyFile, self.website)
         QMessageBox.question(self, title,
@@ -747,10 +768,14 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
     #################
 
     def newFile(self):
+        """ Add a blank tab
+        """
         self.addPage()
         self.statusMessage('New tab')
 
     def getFile(self):
+        """ Get a filename from a file dialog
+        """
         dlg = QFileDialog()
         dlg.setFileMode(QFileDialog.AnyFile)
         # dlg.setFilter("JSON files (*.json)")
@@ -768,6 +793,11 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
     def openFile(self, filename, setFocusOn=True):
+        """
+        Open a specific filename or get a file.
+        setFocusOn will pass along whether to focus the text view or not
+        """
+        # Open the tab if the file is already open
         if filename in self.files:
             self.tabs.setCurrentIndex(self.files.index(filename))
         else:
@@ -793,7 +823,8 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
                 self.statusMessage('The following file does not exist: {}'.format(filename), 2)
 
     def saveFile(self, index=None, doDialog = 0):
-    # def saveFile(self, filename = None, doDialog = 0):
+        """ Save a specific index or save the current index
+        """
         tabInd = self.tabInd() if not index else index
         filename = self.files[tabInd].replace('\\', '/')
 
@@ -855,10 +886,14 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
     def saveAs(self):
+        """ Open a dialog when saving to save a presumably new filepath
+        """
         self.saveFile(doDialog=1)
 
 
     def saveAll(self):
+        """ Save all unsaved tabs
+        """
         curTabInd = self.tabInd()
         for ind, filename in enumerate(self.files):
             self.onTabGo(ind)
@@ -872,6 +907,8 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
     #################
 
     def onTabClose(self, force=False):
+        """ Check for save of file, then delete history for that tab if closed
+        """
         doExit = True
         if not force:
             if self.tabs.tabText(self.tabInd())[-1] == '*':
@@ -902,11 +939,15 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
     def onTabGo(self, ind):
+        """ Switch to a specific tab
+        """
         if len(self.pages) > ind:
             self.tabs.setCurrentIndex(ind)
 
 
     def onTabReopen(self):
+        """ Reopen a closed tab if it exists
+        """
         logger.info('Attempting to reopen the last closed tab.')
         reopening = True
         while reopening:
@@ -926,6 +967,8 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
     def onTabChange(self):
+        """ Change window title and add tab to recently accessed tabs for cycling
+        """
         self.setWindowTitle('{} - {}'.format(self.title, self.tabs.tabText(self.tabInd())))
         self.recentlyAccessedTabs.append(self.tabInd())
         # keeping up to five last tabs in case of tab overwrites
@@ -934,17 +977,23 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
     def onTabCycle(self):
+        """ Switch to last accessed tab
+        """
         tabInd = self.recentlyAccessedTabs[-2]
         self.tabs.setCurrentIndex(tabInd)
 
 
     def onTabPrev(self):
+        """ Go to leftward tab
+        """
         tabInd = self.tabInd()
         tabInd = (tabInd - 1) if tabInd > 0 else (len(self.pages) - 1)
         self.tabs.setCurrentIndex(tabInd)
 
 
     def onTabNext(self):
+        """ Go to rightward tab
+        """
         tabInd = self.tabInd()
         tabInd = (tabInd + 1) if tabInd < (len(self.pages) - 1) else 0
         self.tabs.setCurrentIndex(tabInd)
@@ -955,11 +1004,15 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
     #############
 
     def onBookmarkSet(self, ind):
+        """ Set a bookmark by tab, row and column
+        """
         self.bookmarks[ind] = [self.files[self.tabInd()], self.getTextEdit().getCursorPosition()]
         self.statusMessage('Set bookmark {}'.format(ind))
 
 
     def onBookmarkGo(self, ind):
+        """ Go to a bookmark by tab, row and column
+        """
         filename, pos = self.bookmarks[ind]
         if filename in self.files:
             tabInd = self.files.index(filename)
@@ -973,6 +1026,8 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
     ##############
 
     def goToLine(self):
+        """ Go to a line in the current tab
+        """
         pos, ok = QInputDialog.getInt(self,"Go to Line","Enter line number")
         if ok:
             self.getTextEdit().setCursorPosition((pos-1), 0)
@@ -986,6 +1041,8 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
     @pyqtSlot()
     def getTextEditTextFromTree(self):
+        """ Try to retrieve info from the tree view to update the text view with
+        """
         try:
             tabInd = self.tabInd()
             itemModel = self.itemModels[tabInd]
@@ -1000,23 +1057,31 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
     @pyqtSlot(str)
     def setTextEditText(self, txt):
+        """ Set the text view text
+        """
         self.getTextEdit().setText(txt)
 
 
     @pyqtSlot(tuple)
     def setTextEditCursorPos(self, pos):
+        """ Set text edit curor position
+        """
         logger.debug('Position to set text cursor is {}'.format(pos))
         self.getTextEdit().setCursorPosition(pos[0], pos[1])
 
 
     @pyqtSlot()
     def itemModelClear(self):
+        """ Remove all items from tree view model
+        """
         logger.debug('Clearing Item Model')
         self.itemModels[self.tabInd()].clear()
 
 
     @pyqtSlot(dict)
     def itemModelPopulate(self, dic):
+        """ Populate tree view based upon text view
+        """
         logger.debug('Dict to populate Tree View with is {}'.format(dic))
         itemModel = self.itemModels[self.tabInd()]
         itemModel.populateTree(dic, itemModel.invisibleRootItem())
@@ -1024,6 +1089,8 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
     @pyqtSlot()
     def treeViewExpandAll(self):
+        """ Expand all tree view items
+        """
         logger.debug('Expanding Tree View')
         self.getTreeView().expandAll()
 
@@ -1061,24 +1128,34 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
     ########
 
     def setFocusToTreeEdit(self):
+        """ Set focus to tree view
+        """
         self.getTreeView().setFocus()
 
 
     def treeViewExpand(self):
+        """ Set focus to text view
+        """
         self.getTreeView().expandAll()
 
 
     def treeViewCollapse(self):
+        """ Collapse tree view items
+        """
         self.getTreeView().collapseAll()
 
 
     def treeViewChanged(self, itm):
+        """ Auto update the text view if setting enabled
+        """
         if self.autoUpdateViews:
             self.updateTextFromTreeView()
             # self.updateTreeViewFromText()
 
 
     def updateTreeViewFromText(self):
+        """ Start thread to update the tree view a moment later
+        """
         tabIndex = self.tabInd()
         textEdit = self.textEditors[tabIndex]
         t = TreeViewUpdateThread(textEdit)
@@ -1090,6 +1167,8 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
     def getTreeItemAndInsert(self):
+        """ Insert an item into the currently selected row
+        """
         itemModel = self.itemModels[self.tabInd()]
         treeView = self.getTreeView()
         indexes = treeView.selectedIndexes()
@@ -1107,6 +1186,8 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
     def getTreeItemAndAppend(self):
+        """ Append an item to the currently selected row
+        """
         itemModel = self.itemModels[self.tabInd()]
         treeView = self.getTreeView()
         indexes = treeView.selectedIndexes()
@@ -1126,6 +1207,8 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
     def getTreeItemAndRemove(self):
+        """ Remove the currently selected item
+        """
         itemModel = self.itemModels[self.tabInd()]
         treeView = self.getTreeView()
         indexes = treeView.selectedIndexes()
@@ -1137,6 +1220,8 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
     def getTreeItemAndDuplicate(self):
+        """ Duplicate the currently selected item and all of its children
+        """
         itemModel = self.itemModels[self.tabInd()]
         treeView = self.getTreeView()
         indexes = treeView.selectedIndexes()
@@ -1146,6 +1231,8 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
     def duplicateTreeItemChildren(self, sourceItem, targetItem=None):
+        """ Duplicate item children
+        """
         itemClone = sourceItem.clone()
         itemModel = self.itemModels[self.tabInd()]
         if targetItem:
@@ -1169,6 +1256,8 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
     def openContextMenu(self, position):
+        """ Context menu for the tree view
+        """
         treeView = self.getTreeView()
 
         menu = QMenu()
@@ -1188,6 +1277,8 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
     def refreshTree(self):
+        """ Refresh the tree view
+        """
         self.treeViewChanged(itm=None)
 
 
@@ -1196,6 +1287,8 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
     ########
 
     def findInText(self, searchText=None, findNext=False):
+        """ Find text from search bar in text view. Regex compatible if valid regex, otherwise removes non alphanumeric/whitespace characters
+        """
         # TODO optimize
         if not searchText:
             searchText = self.getSearchBar().text()
@@ -1253,34 +1346,49 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
     def findNextInText(self):
+        """ Select the next match
+        """
         self.findInText(findNext=True)
 
 
     def searchBarTextChanged(self):
+        """ Actively search for matches while typing
+        """
         self.findNextInText()
 
 
     def searchBarReturnPressed(self):
+        """ Select next match
+        """
         self.findNextInText()
         # self.setFocusToTextEdit()
         # self.setFocusToFind()
 
 
     def findInTextAndFocus(self):
+        """ Focus text edit
+        """
+        # TODO rename
         self.setFocusToTextEdit()
 
 
     def toggleFindMatchCase(self):
+        """ Toggle match case when searching
+        """
         self.findMatchCase = not self.findMatchCase
         self.findInText()
 
 
     def toggleFindWholeWord(self):
+        """ Toggle finding whole word when searching
+        """
         self.findWholeWord = not self.findWholeWord
         self.findInText()
 
 
     def setTextSelection(self, start, end, add=False):
+        """ Sets or adds new selection based upon start and end integers
+        """
         textEdit = self.getTextEdit()
 
         if add:
@@ -1290,11 +1398,15 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
     def clearTextSelection(self):
+        """ Clear text selection
+        """
         textEdit = self.getTextEdit()
         textEdit.SendScintilla(textEdit.SCI_SETSELECTION)
 
 
     def updateTextFromTreeView(self):
+        """ Start a thread to update the text view from tree view and store a text backup
+        """
         self.storeTextBackup()
         tabIndex = self.tabInd()
         itemModel = self.itemModels[tabIndex]
@@ -1305,6 +1417,8 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
     def updateTextAutoBrace(self, txt, pos):
+        """ Starta thread to update the text when doing autoSyntax
+        """
         self.storeTextBackup()
         t = TextAutoBraceThread(txt, pos)
         t.textEditSignal.connect(self.setTextEditText)
@@ -1313,6 +1427,8 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
     def undoTextChange(self):
+        """ Set text to a previously stored state
+        """
         tabInd = self.tabInd()
         if self.textHistory[tabInd]:
             if self.textHistoryIndex[tabInd] == (len(self.textHistory[tabInd]) - 1):
@@ -1325,6 +1441,8 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
     def redoTextChange(self):
+        """ Set text to a previously undone state
+        """
         tabInd = self.tabInd()
         if self.textHistory[tabInd]:
             if self.textHistoryIndex[tabInd] < (len(self.textHistory[tabInd]) - 1):
@@ -1334,6 +1452,8 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
     def setUndoRedoButtons(self):
+        """ Set enabled status of undo/redo buttons
+        """
         tabInd = self.tabInd()
         if self.textHistoryIndex[tabInd] < (len(self.textHistory[tabInd]) - 1):
             self.redoButtons[tabInd].setEnabled(True)
@@ -1347,6 +1467,8 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
     def storeTextBackup(self, setIndex=True):
+        """ Store text view text as a backup for undos
+        """
         tabInd = self.tabInd()
         self.textHistory[tabInd].append(self.getTextEdit().text())
         if len(self.textHistory[tabInd]) > self.settings["undoSettings"]["maxUndos"]:
@@ -1358,6 +1480,8 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
     def setFocusToFind(self):
+        """ Set focus to search bar
+        """
         searchBar = self.getSearchBar()
         if self.settings["textSettings"]["clearSearchBarOnFocus"]:
             searchBar.clear()
@@ -1365,21 +1489,29 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
     def setFocusToTextEdit(self):
+        """ Set focus to text edit
+        """
         self.storeTextBackup()
         self.getTextEdit().setFocus()
 
 
     def replaceStrIndex(self, text, index=0, replacement=''):
+        """ Replaces the character at the strings index with the replacement str
+        """
         return '{}{}{}'.format(text[:index], replacement, text[index+1:])
 
 
     def onTextSort(self):
+        """ Sorts values in text
+        """
         jsc.sortKeys = True
         self.onTextPretty()
         jsc.sortKeys = False
 
 
     def onTextPretty(self):
+        """ Formats whitespace for text
+        """
         self.storeTextBackup()
         textEdit = self.getTextEdit()
         dictText = jsc.getDict(textEdit.text())
@@ -1389,6 +1521,8 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
     def onTextCompact(self):
+        """ Removes whitespace for text
+        """
         self.storeTextBackup()
         textEdit = self.getTextEdit()
         dictText = jsc.getDict(textEdit.text())
@@ -1398,6 +1532,8 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
     def textEditChanged(self):
+        """ Handle autoSyntax and autoUpdatingViews
+        """
         tabName = '{}*'.format(os.path.splitext(os.path.basename(self.getLineEdit().text()))[0])
         self.tabs.setTabText(self.tabInd(), tabName)
         self.setWindowTitle('{} - {}'.format(self.title, tabName))
@@ -1477,42 +1613,60 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
     ####################
 
     def tabInd(self):
+        """ Returns current tab index
+        """
         return self.tabs.currentIndex()
 
 
     def getTextEdit(self):
+        """ Returns current text edit
+        """
         return self.textEditors[self.tabInd()]
 
 
     def getLineEdit(self):
+        """ Returns current line edit
+        """
         return self.lineEdits[self.tabInd()]
 
 
     def getTreeView(self):
+        """ Returns current tree view
+        """
         return self.treeViews[self.tabInd()]
 
 
     def getSearchBar(self):
+        """ Returns current search bar
+        """
         return self.searchBars[self.tabInd()]
 
 
     def toggleAutoUpdateViews(self):
+        """ Toggles autoUpdateViews which updates, the text or tree views when the other is changed
+        """
         self.autoUpdateViews = not self.autoUpdateViews
         for btn in self.autoUpdateButtons:
             btn.setChecked(self.autoUpdateViews)
 
 
     def copyTextToClipboard(self):
+        """ Copies text to clipboard
+        """
         pyperclip.copy(self.getTextEdit().text())
 
 
     def quickPrompt(self, title, message):
+        """ Returns True if yes is clicked in Message Box
+        """
         reply = QMessageBox.question(self, title,
                         message, QMessageBox.Yes, QMessageBox.No)
         return reply == QMessageBox.Yes
 
 
     def sortTree(self):
+        """ Sort tree view items alphabetically
+        """
         itemModel = self.itemModels[self.tabInd()]
         itemModel.sort(0)
         self.refreshTree()
@@ -1520,11 +1674,15 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
     def updateLineColInfo(self):
+        """ Updates line and column info based upon the cursor position
+        """
         cursorLine, cursorCol = self.getTextEdit().getCursorPosition()
         self.lineColLabel.setText('Ln {}, Cl {}'.format(cursorLine + 1, cursorCol + 1))
 
 
     def lineEditEnter(self):
+        """ Opens the file if it exists, otherwise tries to save the current file to that filepath
+        """
         filepathText = self.getLineEdit().text()
         if filepathText:
             if os.path.isfile(filepathText):
@@ -1534,6 +1692,8 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
     def createInfoFile(self, infoFile = 'settings'):
+        """ Create an info file for storing information outside of a session
+        """
         filename = None
         workingDict = None
         if infoFile == 'settings':
@@ -1556,10 +1716,14 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
     def openSettingsFile(self):
+        """ Open the settings file in a new tab
+        """
         self.openFile(self.settingsFile)
 
 
     def resetInfoFile(self, infoFile = 'settings'):
+        """ Reset an info file to defaults
+        """
         filename = None
         workingDict = None
         defaultDict = None
@@ -1591,6 +1755,8 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
     def loadInfoFile(self, infoFile = 'settings'):
+        """ Loads the specified info file
+        """
         filename = None
         workingDict = None
         if infoFile == 'settings':
@@ -1631,6 +1797,7 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
     def marginLeftClick(self, margin_nr, line_nr, state):
+        # TODO implement margin clicks for reordering JSON text
         pass
 
         # if state == Qt.ControlModifier:
@@ -1651,6 +1818,8 @@ class JSONitorWindow(QMainWindow, Ui_MainWindow):
 
 
 class TextAutoBraceThread(QThread):
+    """ Thread for doing autoSyntax
+    """
     textEditSignal = pyqtSignal(str)
     textEditCursorPosSignal = pyqtSignal(tuple)
     statusSignal = pyqtSignal(str, int)
@@ -1672,6 +1841,8 @@ class TextAutoBraceThread(QThread):
 
 
 class TreeViewUpdateThread(QThread):
+    """ Thread for updating the tree view
+    """
     itemModelClearSignal = pyqtSignal()
     itemModelPopulateSignal = pyqtSignal(dict)
     treeViewExpandAllSignal = pyqtSignal()
@@ -1699,6 +1870,8 @@ class TreeViewUpdateThread(QThread):
 
 
 class TextUpdateThread(QThread):
+    """ Thread for updating the text view
+    """
     textEditFromTreeSignal = pyqtSignal()
     statusSignal = pyqtSignal(str, int)
 
@@ -1716,6 +1889,8 @@ class TextUpdateThread(QThread):
 
 
 class StandardItemModel(QStandardItemModel):
+    """ Item model extension for getting list of items and populating based upon a dictionary
+    """
     def __init__(self, parent = None):
         super(StandardItemModel, self).__init__(parent)
         self.__fadeFont = QFont('DejaVu Sans Mono')
