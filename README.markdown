@@ -88,7 +88,7 @@ Bookmarks may be accessed using Alt+(0-9)
 #### Text Formating Options
 ![TextFormatingOptions](https://imgur.com/qh5JvG2.gif)
 
-Click the buttons or using the JSON menu to format your text to compact, pretty-printed, or sorted
+Click the buttons or use the JSON menu to format your text to compact, pretty-printed, or sorted
 
 #### Auto Update and Undo
 ![AutoUpdateAndUndo](https://imgur.com/jq4QdS6.gif)
