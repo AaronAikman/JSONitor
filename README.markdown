@@ -93,7 +93,7 @@ Click the buttons or use the JSON menu to format your text to compact, pretty-pr
 #### Auto Update and Undo
 ![AutoUpdateAndUndo](https://imgur.com/jq4QdS6.gif)
 
-Undos and Redo stack based upon updates from the Tree View per tab
+Undos and Redos stack per tab based upon updates from JSONitor actions
 
 #### Auto Syntax and Settings
 ![AutoSyntaxAndSettings](https://imgur.com/32COdrn.gif)
